@@ -1,0 +1,60 @@
+---
+// Galaxy hero: the Sun (author) + drifting post-comets behind the masthead.
+// Lazy-initialised (three.js fetched on first view), pauses off-screen,
+// disposed on page swap, static frame under reduced-motion, gradient fallback
+// if WebGL is unavailable. The full solar system lives on /galaxy.
+import { galaxyData } from '../lib/galaxy/data.js';
+const data = await galaxyData();
+---
+<div class="galaxy-hero" aria-hidden="true">
+  <canvas id="galaxy-hero-canvas"></canvas>
+  <div class="galaxy-overlay" id="galaxy-hero-overlay"></div>
+</div>
+<script type="application/json" id="galaxy-hero-data" set:html={JSON.stringify(data)}></script>
+
+<style>
+  .galaxy-hero {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    /* static fallback glow — visible until/unless WebGL takes over */
+    background:
+      radial-gradient(ellipse 50% 42% at 50% 48%, rgba(34, 211, 238, 0.12), transparent 65%),
+      radial-gradient(ellipse 38% 36% at 32% 64%, rgba(129, 140, 248, 0.1), transparent 65%),
+      radial-gradient(ellipse 30% 28% at 64% 60%, rgba(45, 212, 191, 0.08), transparent 65%);
+  }
+  .galaxy-hero canvas { width: 100%; height: 100%; display: block; }
+  .galaxy-overlay { position: absolute; inset: 0; pointer-events: none; }
+  /* the engine sets the card to pointer-events implicitly via its own click; allow it */
+  .galaxy-overlay :global(.gx-card) { pointer-events: auto; }
+</style>
+
+<script>
+  let handle: { dispose: () => void } | null = null;
+
+  async function initHero() {
+    const canvas = document.getElementById('galaxy-hero-canvas') as HTMLCanvasElement | null;
+    const overlay = document.getElementById('galaxy-hero-overlay');
+    const dataEl = document.getElementById('galaxy-hero-data');
+    if (!canvas || !overlay || !dataEl || handle) return;
+
+    let data;
+    try { data = JSON.parse(dataEl.textContent || '{}'); } catch { return; }
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    try {
+      const { initGalaxy } = await import('../scripts/galaxy.js');
+      handle = initGalaxy({ canvas, overlay, mode: 'hero', data, prefersReducedMotion });
+    } catch (err) {
+      // WebGL unavailable or import failed — the fallback gradient remains.
+      console.warn('[galaxy] hero init failed', err);
+    }
+  }
+
+  function teardown() {
+    if (handle) { handle.dispose(); handle = null; }
+  }
+
+  document.addEventListener('astro:page-load', initHero);
+  document.addEventListener('astro:before-swap', teardown);
+</script>

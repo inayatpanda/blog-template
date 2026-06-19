@@ -1,0 +1,427 @@
+---
+import '@fontsource-variable/space-grotesk';
+import '@fontsource-variable/inter';
+import '../styles/global.css';
+import { ViewTransitions } from 'astro:transitions';
+import Icon from '../components/Icon.astro';
+import { site, pageTitle } from '../lib/site';
+
+// Build footer socials from site.json (non-empty values only)
+const socialLinks = [
+  site.socials.linkedin && { name: 'LinkedIn', url: site.socials.linkedin, icon: 'brand-linkedin' },
+  site.socials.instagram && { name: 'Instagram', url: site.socials.instagram, icon: 'brand-instagram' },
+  site.socials.github && { name: 'GitHub', url: site.socials.github, icon: 'brand-github' },
+].filter(Boolean) as { name: string; url: string; icon: string }[];
+
+interface Props {
+  title?: string;
+  description?: string;
+  progress?: boolean;
+  /** Absolute or root-relative share image. Defaults to the branded /og-default.png. */
+  ogImage?: string;
+  /** 'website' for pages, 'article' for blog posts. */
+  ogType?: 'website' | 'article';
+}
+const {
+  title,
+  description = site.description,
+  progress = false,
+  ogImage = '/og-default.png',
+  ogType = 'website',
+} = Astro.props;
+
+// Canonical + absolute share-image URLs, resolved against `site` in astro.config.
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+const ogImageUrl = new URL(ogImage, Astro.site).href;
+
+// `primary` items show as a single quick-access row on mobile; the hamburger holds
+// the full menu. Order is deliberate: Home, Observatory, Writing, Darkroom, then the rest.
+const nav = [
+  { href: '/', label: 'Home', primary: true },
+  { href: '/observatory/', label: 'Observatory', primary: true },
+  { href: '/writing/', label: 'Writing', primary: true },
+  { href: '/darkroom/', label: 'Darkroom', primary: true },
+  { href: '/apps/', label: 'Apps' },
+  { href: '/about/', label: 'About' },
+  { href: '/contact/', label: 'Contact' },
+];
+const path = Astro.url.pathname;
+const isCurrent = (href: string) => {
+  if (href === '/') return path === '/';
+  // "Writing" owns the archive, individual posts and constellation pages.
+  if (href === '/writing/') return path.startsWith('/writing') || path.startsWith('/blog') || path.startsWith('/c/');
+  return path.startsWith(href);
+};
+---
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#04060c" />
+    {/* switchable site theme — apply the saved choice before paint (no flash) */}
+    <script is:inline define:vars={{ defaultTheme: site.defaultTheme }}>
+      (function(){ try { var t = localStorage.getItem('site-theme') || defaultTheme; if (t && t !== 'observatory') document.documentElement.dataset.siteTheme = t; } catch (e) {} })();
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{pageTitle(title)}</title>
+
+    {/* Canonical + feed */}
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" type="application/rss+xml" title={site.masthead} href="/rss.xml" />
+
+    {/* Open Graph */}
+    <meta property="og:site_name" content={site.masthead} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:locale" content="en_GB" />
+
+    {/* Twitter / X card */}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
+
+    <ViewTransitions />
+  </head>
+  <body data-default-theme={site.defaultTheme}>
+    {progress && <div class="progress-bar" id="progress-bar"></div>}
+
+    <header class="site-header">
+      <div class="container">
+        <a class="logo" href="/">{site.name}</a>
+        <button class="nav-toggle" id="nav-toggle" aria-label="Menu" aria-expanded="false" aria-controls="site-nav">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+        {/* Mobile-only single quick-access row (primary items). Desktop hides it; the full nav is inline. */}
+        <nav class="nav-primary" aria-label="Primary">
+          {nav.filter((n) => n.primary).map((n) => (
+            <a href={n.href} aria-current={isCurrent(n.href) ? 'page' : undefined}>{n.label}</a>
+          ))}
+        </nav>
+        <nav class="site-nav" id="site-nav" aria-label="Main">
+          {nav.map((n) => (
+            <a href={n.href} aria-current={isCurrent(n.href) ? 'page' : undefined}>{n.label}</a>
+          ))}
+        </nav>
+        <div class="theme-menu" id="theme-menu">
+          <button class="theme-menu-btn" id="theme-menu-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="theme-menu-panel">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <circle cx="8.4" cy="9.4" r="1.15" fill="currentColor" stroke="none" />
+              <circle cx="15.6" cy="9.4" r="1.15" fill="currentColor" stroke="none" />
+              <circle cx="9.2" cy="15.2" r="1.15" fill="currentColor" stroke="none" />
+            </svg>
+            <span class="theme-menu-label">Choose theme</span>
+            <svg class="theme-menu-caret" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+          </button>
+          <div class="theme-menu-panel" id="theme-menu-panel" role="menu" hidden>
+            <button role="menuitem" type="button" data-theme="observatory">Observatory</button>
+            <button role="menuitem" type="button" data-theme="vista">Vista</button>
+            <button role="menuitem" type="button" data-theme="blueprint">Blueprint</button>
+            <button role="menuitem" type="button" data-theme="atlas">Atlas</button>
+            <button role="menuitem" type="button" data-theme="daybreak">Daybreak</button>
+            <button role="menuitem" type="button" data-theme="dune">Dune</button>
+            <button role="menuitem" type="button" data-theme="rivendell">Rivendell</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <span>© {new Date().getFullYear()} {site.name}</span>
+        <div class="theme-chooser" role="group" aria-label="Site theme">
+          <span class="tc-label">Theme</span>
+          <button type="button" data-theme="observatory" aria-pressed="true">Observatory</button>
+          <button type="button" data-theme="vista" aria-pressed="false">Vista</button>
+          <button type="button" data-theme="blueprint" aria-pressed="false">Blueprint</button>
+          <button type="button" data-theme="atlas" aria-pressed="false">Atlas</button>
+          <button type="button" data-theme="daybreak" aria-pressed="false">Daybreak</button>
+          <button type="button" data-theme="dune" aria-pressed="false">Dune</button>
+          <button type="button" data-theme="rivendell" aria-pressed="false">Rivendell</button>
+        </div>
+        <nav aria-label="Footer">
+          <a href="/">Home</a>
+          <a href="/writing/">Writing</a>
+          <a href="/observatory/">Observatory</a>
+          <a href="/apps/">Apps</a>
+          <a href="/about/">About</a>
+          <a href="/darkroom/">Darkroom</a>
+          <a href="/contact/">Contact</a>
+          <a href="/rss.xml">RSS</a>
+        </nav>
+        {socialLinks.length > 0 && (
+          <div class="footer-socials">
+            {socialLinks.map((s) => (
+              <a href={s.url} aria-label={s.name} target="_blank" rel="noopener me"><Icon name={s.icon} size={20} /></a>
+            ))}
+          </div>
+        )}
+      </div>
+    </footer>
+
+    <script>
+      import { gsap } from 'gsap';
+      import { ScrollTrigger } from 'gsap/ScrollTrigger';
+      import { initLightbox } from '../scripts/lightbox.js';
+
+      gsap.registerPlugin(ScrollTrigger);
+
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      function initNav() {
+        const toggle = document.getElementById('nav-toggle');
+        const navEl = document.getElementById('site-nav');
+        if (!toggle || !navEl || toggle.dataset.bound) return;
+        toggle.dataset.bound = '1';
+        toggle.addEventListener('click', () => {
+          const open = navEl.classList.toggle('open');
+          toggle.setAttribute('aria-expanded', String(open));
+        });
+        navEl.addEventListener('click', (e) => {
+          if ((e.target as HTMLElement).tagName === 'A') navEl.classList.remove('open');
+        });
+      }
+
+      // Topic nav <details> accordions: open as a static sidebar on desktop, collapsed
+      // on mobile. Sync on load and only when crossing the 880px breakpoint (not on every
+      // mobile scroll-resize), so a reader's manual toggle survives scrolling.
+      const topicMq = window.matchMedia('(min-width: 881px)');
+      function syncTopicAcc() {
+        document.querySelectorAll<HTMLDetailsElement>('.topic-acc').forEach((d) => {
+          d.open = topicMq.matches;
+        });
+      }
+      let topicMqBound = false;
+      function initTopicAcc() {
+        syncTopicAcc();
+        if (!topicMqBound) {
+          topicMqBound = true;
+          topicMq.addEventListener('change', syncTopicAcc);
+        }
+      }
+
+      function initReveals() {
+        if (reducedMotion) return;
+        document.querySelectorAll<HTMLElement>('[data-reveal]:not([data-revealed])').forEach((el) => {
+          el.dataset.revealed = '1';
+          const dir = el.dataset.reveal; // '', 'left', 'right', 'scale'
+          const delay = parseFloat(el.dataset.delay || '0');
+          const from: gsap.TweenVars = { opacity: 0, duration: 0.9, ease: 'power3.out', delay };
+          if (dir === 'left') from.x = -36;
+          else if (dir === 'right') from.x = 36;
+          else if (dir === 'scale') from.scale = 0.92;
+          else from.y = 34;
+          gsap.from(el, {
+            ...from,
+            scrollTrigger: { trigger: el, start: 'top 88%', once: true },
+          });
+        });
+      }
+
+      function initCounters() {
+        document.querySelectorAll<HTMLElement>('[data-count]:not([data-counted])').forEach((el) => {
+          el.dataset.counted = '1';
+          const target = parseFloat(el.dataset.count || '0');
+          const suffix = el.dataset.suffix || '';
+          if (reducedMotion) { el.textContent = target + suffix; return; }
+          const obj = { v: 0 };
+          gsap.to(obj, {
+            v: target,
+            duration: 1.6,
+            ease: 'power2.out',
+            scrollTrigger: { trigger: el, start: 'top 90%', once: true },
+            onUpdate: () => { el.textContent = Math.round(obj.v) + suffix; },
+          });
+        });
+      }
+
+      function initTilt() {
+        if (reducedMotion || window.matchMedia('(hover: none)').matches) return;
+        document.querySelectorAll<HTMLElement>('[data-tilt]:not([data-tilted])').forEach((card) => {
+          card.dataset.tilted = '1';
+          const strength = 7;
+          card.addEventListener('pointermove', (e) => {
+            const r = card.getBoundingClientRect();
+            const px = (e.clientX - r.left) / r.width - 0.5;
+            const py = (e.clientY - r.top) / r.height - 0.5;
+            gsap.to(card, {
+              rotateY: px * strength,
+              rotateX: -py * strength,
+              transformPerspective: 700,
+              duration: 0.4,
+              ease: 'power2.out',
+            });
+          });
+          card.addEventListener('pointerleave', () => {
+            gsap.to(card, { rotateX: 0, rotateY: 0, duration: 0.6, ease: 'elastic.out(1, 0.6)' });
+          });
+        });
+      }
+
+      function initProgress() {
+        const bar = document.getElementById('progress-bar');
+        if (!bar || bar.dataset.bound) return;
+        bar.dataset.bound = '1';
+        let ticking = false;
+        const update = () => {
+          const doc = document.documentElement;
+          const max = doc.scrollHeight - window.innerHeight;
+          const p = max > 0 ? Math.min(1, window.scrollY / max) : 0;
+          bar.style.transform = `scaleX(${p})`;
+          ticking = false;
+        };
+        window.addEventListener('scroll', () => {
+          if (!ticking) { ticking = true; requestAnimationFrame(update); }
+        }, { passive: true });
+        update();
+      }
+
+      // Interactive playground scripts inside markdown use
+      // <script type="application/pg"> so Astro leaves them alone.
+      // Execute them after each page load.
+      function initPlaygrounds() {
+        document.querySelectorAll<HTMLScriptElement>('script[type="application/pg"]:not([data-run])').forEach((s) => {
+          s.dataset.run = '1';
+          try { new Function(s.textContent || '')(); }
+          catch (e) { console.error('playground error', e); }
+        });
+      }
+
+      function initSvgDraw() {
+        document.querySelectorAll<SVGElement>('[data-draw]:not([data-drawn])').forEach((svg) => {
+          (svg as unknown as HTMLElement).dataset.drawn = '1';
+          const io = new IntersectionObserver((entries) => {
+            entries.forEach((en) => {
+              if (en.isIntersecting) {
+                svg.classList.add('is-inview');
+                io.disconnect();
+              }
+            });
+          }, { threshold: 0.3 });
+          io.observe(svg);
+        });
+      }
+
+      // The Helm figures (<figure class="fig" data-draw>) carry a self-contained
+      // inline SVG whose CSS already autoplays the fig-draw line-draw on load —
+      // this works with JS off. This is only a timing nicety: replay the draw when
+      // the figure scrolls into view so the stroke animates where the reader sees it.
+      // No-op under reduced motion; never throws when there are no figures.
+      function initFigDraw() {
+        if (reducedMotion) return;
+        const figs = document.querySelectorAll<HTMLElement>('figure.fig[data-draw]:not([data-figdrawn])');
+        if (!figs.length) return;
+        figs.forEach((fig) => {
+          fig.dataset.figdrawn = '1';
+          const io = new IntersectionObserver((entries) => {
+            entries.forEach((en) => {
+              if (!en.isIntersecting) return;
+              fig.querySelectorAll<SVGElement>('.fig-stroke').forEach((stroke) => {
+                // briefly clear the animation, force a reflow, then let the
+                // inlined .fig-stroke rule re-run its keyframes from the start
+                stroke.style.animation = 'none';
+                void (stroke as unknown as HTMLElement).getBoundingClientRect();
+                stroke.style.animation = '';
+              });
+              io.disconnect();
+            });
+          }, { threshold: 0.25 });
+          io.observe(fig);
+        });
+      }
+
+      // Switchable site theme: reflect the saved choice, wire the footer chooser + header dropdown.
+      function initThemeChooser() {
+        const defaultTheme = document.body.dataset.defaultTheme || 'observatory';
+        let saved = defaultTheme;
+        try { saved = localStorage.getItem('site-theme') || defaultTheme; } catch (e) {}
+        document.documentElement.dataset.siteTheme = saved === 'observatory' ? '' : saved;
+        // theme buttons live in BOTH the footer chooser and the header "Choose theme" dropdown
+        document.querySelectorAll<HTMLButtonElement>('.theme-chooser [data-theme], .theme-menu [data-theme]').forEach((b) => {
+          b.setAttribute('aria-pressed', String(b.dataset.theme === saved));
+          if (b.dataset.bound) return;
+          b.dataset.bound = '1';
+          b.addEventListener('click', () => {
+            const t = b.dataset.theme || 'observatory';
+            try { localStorage.setItem('site-theme', t); } catch (e) {}
+            document.documentElement.dataset.siteTheme = t === 'observatory' ? '' : t;
+            // CSS tokens swap live, but the 3D scenes read their palette once at init — reload so
+            // they reskin to the chosen theme consistently.
+            location.reload();
+          });
+        });
+        // header "Choose theme" dropdown open/close
+        const menuBtn = document.getElementById('theme-menu-btn');
+        const panel = document.getElementById('theme-menu-panel');
+        if (menuBtn && panel && !menuBtn.dataset.bound) {
+          menuBtn.dataset.bound = '1';
+          const close = () => { panel.hidden = true; menuBtn.setAttribute('aria-expanded', 'false'); };
+          menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const willOpen = panel.hidden;
+            panel.hidden = !willOpen;
+            menuBtn.setAttribute('aria-expanded', String(willOpen));
+          });
+          document.addEventListener('click', (e) => { if (!(e.target as HTMLElement).closest('.theme-menu')) close(); });
+          document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+        }
+      }
+
+      // Per-theme vocabulary for the explore page + its topic-groups. The page is built
+      // (SSR) with the Observatory wording; this swaps it client-side to match the active
+      // theme. Plain text nodes only — safe to set textContent.
+      const THEME_TERMS: Record<string, { page: string; nav: string; groups: string; section: string }> = {
+        observatory: { page: 'The Observatory', nav: 'Observatory',   groups: 'Constellations', section: 'Every constellation' },
+        vista:       { page: 'The Deep',        nav: 'The Deep',      groups: 'Currents',       section: 'Every current' },
+        blueprint:   { page: 'The Schematic',   nav: 'The Schematic', groups: 'Layers',         section: 'Every layer' },
+        atlas:       { page: 'The Atlas',       nav: 'The Atlas',     groups: 'Regions',        section: 'Every region' },
+        daybreak:    { page: 'The Sky',         nav: 'The Sky',       groups: 'Skies',          section: 'Every sky' },
+        dune:        { page: 'The Dunes',       nav: 'The Dunes',     groups: 'Expanses',       section: 'Every expanse' },
+        rivendell:   { page: 'The Map',         nav: 'The Map',       groups: 'Realms',         section: 'Every realm' },
+      };
+      function applyThemeTerms() {
+        const id = document.documentElement.dataset.siteTheme || 'observatory';
+        const t = THEME_TERMS[id] || THEME_TERMS.observatory;
+        document.querySelectorAll<HTMLAnchorElement>('a[href="/observatory/"]').forEach((a) => { a.textContent = t.nav; });
+        const eyebrow = document.querySelector('.obs-title-eyebrow'); if (eyebrow) eyebrow.textContent = t.page;
+        const legendTitle = document.querySelector('.legend-title'); if (legendTitle) legendTitle.textContent = t.groups;
+        const accSpan = document.querySelector('.obs-acc-toggle span:not(.obs-acc-caret)'); if (accSpan) accSpan.textContent = t.groups;
+        const sectionTitle = document.querySelector('#constellations .section-title'); if (sectionTitle) sectionTitle.textContent = t.section;
+      }
+
+      function initAll() {
+        initThemeChooser();
+        applyThemeTerms();
+        initNav();
+        initTopicAcc();
+        initReveals();
+        initCounters();
+        initTilt();
+        initProgress();
+        initPlaygrounds();
+        initSvgDraw();
+        initFigDraw();
+        initLightbox();
+        ScrollTrigger.refresh();
+      }
+
+      document.addEventListener('astro:page-load', initAll);
+      document.addEventListener('astro:before-swap', () => {
+        ScrollTrigger.getAll().forEach((t) => t.kill());
+      });
+    </script>
+  </body>
+</html>

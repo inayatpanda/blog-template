@@ -1,0 +1,115 @@
+---
+import Base from '../layouts/Base.astro';
+// Dev-only reference gallery — the real browse-and-pick lives in the Helm composer.
+if (import.meta.env.PROD) return Astro.redirect('/', 302);
+---
+<Base title="Icon gallery" description="Browse the line-icon library — use any as a post glyph or inline.">
+  <section class="section">
+    <div class="container">
+      <header class="ico-head" data-reveal>
+        <h1 class="display" style="font-size:clamp(1.9rem,5vw,2.8rem)">Icons</h1>
+        <p class="lead">A few thousand line icons — places, monuments, tech, medicine, nature and more.
+          Use any as a post glyph (<code>icon:&lt;name&gt;</code>) or inline. Click one to copy its token.</p>
+      </header>
+
+      <div class="ico-controls">
+        <input id="icoSearch" type="search" placeholder="Search — stethoscope, castle, cpu, tree, bone…" autocomplete="off" />
+        <div id="icoCats" class="ico-cats"></div>
+      </div>
+      <p id="icoCount" class="ico-count">Loading…</p>
+      <div id="icoGrid" class="ico-grid"></div>
+      <div class="ico-more"><button class="btn btn-ghost" id="icoMoreBtn" hidden>Show more</button></div>
+    </div>
+  </section>
+  <div id="icoToast" class="ico-toast"></div>
+
+  <style>
+    .ico-head { margin-bottom: 1.4rem; }
+    .ico-head .lead { margin-top: 0.5rem; }
+    .ico-head code { background: var(--bg-3); border: 1px solid var(--line); border-radius: 6px; padding: 0.1em 0.4em; font-size: 0.92em; }
+    .ico-controls { position: sticky; top: var(--header-h); z-index: 5; background: var(--bg-0);
+      padding: 0.8rem 0; border-bottom: 1px solid var(--line); }
+    #icoSearch { width: 100%; background: var(--bg-2); border: 1px solid var(--line-strong);
+      border-radius: 12px; color: var(--ink); padding: 0.7em 1em; font-size: 1rem; }
+    #icoSearch:focus { outline: none; border-color: var(--cyan); }
+    .ico-cats { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
+    .ico-cat { font-family: var(--font-display); font-size: 0.76rem; color: var(--ink-dim);
+      border: 1px solid var(--line-strong); border-radius: 99px; padding: 0.3em 0.8em;
+      background: transparent; cursor: pointer; white-space: nowrap; transition: color .2s, background .2s, border-color .2s; }
+    .ico-cat:hover { color: var(--ink); }
+    .ico-cat.on { color: var(--bg-0); background: var(--cyan); border-color: var(--cyan); font-weight: 700; }
+    .ico-count { color: var(--ink-faint); font-size: 0.85rem; margin: 0.9rem 0; }
+    .ico-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 0.6rem; }
+    .ico-tile { display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+      padding: 0.9rem 0.4rem 0.6rem; border: 1px solid var(--line); border-radius: 12px;
+      background: var(--bg-1); color: var(--ink-dim); cursor: pointer;
+      transition: color .2s, border-color .2s, background .2s, transform .2s; }
+    .ico-tile:hover { color: var(--cyan); border-color: rgba(34,211,238,.4);
+      background: var(--bg-2); transform: translateY(-2px);
+      box-shadow: 0 8px 26px rgba(0,0,0,.4), 0 0 18px rgba(34,211,238,.12); }
+    .ico-tile svg { width: 30px; height: 30px; }
+    .ico-tile .nm { font-size: 0.62rem; color: var(--ink-faint); text-align: center; line-height: 1.2;
+      word-break: break-word; max-width: 100%; }
+    .ico-more { text-align: center; margin-top: 1.6rem; }
+    .ico-toast { position: fixed; left: 50%; bottom: 2rem; transform: translateX(-50%) translateY(20px);
+      background: var(--bg-3); border: 1px solid var(--cyan); color: var(--ink);
+      padding: 0.7em 1.2em; border-radius: 12px; font-size: 0.9rem; opacity: 0; pointer-events: none;
+      transition: opacity .2s, transform .2s; z-index: 50; }
+    .ico-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+
+  <script>
+    const PAGE = 240;
+    let ALL = [], filtered = [], shown = 0, cat = '';
+
+    function svgUse(name){
+      return `<svg viewBox="0 0 24 24" aria-hidden="true"><use href="/icons-sprite.svg#ti-${name}"></use></svg>`;
+    }
+    function render(reset){
+      const grid = document.getElementById('icoGrid');
+      if(reset){ grid.innerHTML=''; shown=0; }
+      const next = filtered.slice(shown, shown+PAGE);
+      grid.insertAdjacentHTML('beforeend', next.map(it =>
+        `<button class="ico-tile" data-n="${it.n}" title="icon:${it.n}">${svgUse(it.n)}<span class="nm">${it.n}</span></button>`
+      ).join(''));
+      shown += next.length;
+      document.getElementById('icoCount').textContent = `${filtered.length.toLocaleString()} icon${filtered.length===1?'':'s'}${cat?' in '+cat:''}${shown<filtered.length?` · showing ${shown}`:''}`;
+      const moreBtn = document.getElementById('icoMoreBtn');
+      moreBtn.hidden = shown >= filtered.length;
+    }
+    function apply(){
+      const q = (document.getElementById('icoSearch').value || '').trim().toLowerCase();
+      filtered = ALL.filter(it =>
+        (!cat || it.c === cat) &&
+        (!q || it.n.includes(q) || it.t.includes(q) || it.c.toLowerCase().includes(q)));
+      render(true);
+    }
+    function toast(msg){
+      const t = document.getElementById('icoToast'); t.textContent = msg; t.classList.add('show');
+      clearTimeout(window._icoT); window._icoT = setTimeout(()=>t.classList.remove('show'), 1600);
+    }
+    async function init(){
+      try{ ALL = await (await fetch('/icons-manifest.json')).json(); }
+      catch(e){ document.getElementById('icoCount').textContent = 'Could not load icons.'; return; }
+      // category chips (by count, top ~16)
+      const counts = {}; ALL.forEach(it => { if(it.c) counts[it.c]=(counts[it.c]||0)+1; });
+      const cats = Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
+      const wrap = document.getElementById('icoCats');
+      wrap.innerHTML = `<button class="ico-cat on" data-c="">All</button>` +
+        cats.map(c=>`<button class="ico-cat" data-c="${c}">${c}</button>`).join('');
+      wrap.addEventListener('click', e => {
+        const b = e.target.closest('.ico-cat'); if(!b) return;
+        cat = b.dataset.c; wrap.querySelectorAll('.ico-cat').forEach(x=>x.classList.toggle('on', x===b)); apply();
+      });
+      document.getElementById('icoSearch').addEventListener('input', () => { clearTimeout(window._icoS); window._icoS=setTimeout(apply,150); });
+      document.getElementById('icoMoreBtn').addEventListener('click', ()=>render(false));
+      document.getElementById('icoGrid').addEventListener('click', e => {
+        const t = e.target.closest('.ico-tile'); if(!t) return;
+        const token = 'icon:'+t.dataset.n;
+        navigator.clipboard?.writeText(token).then(()=>toast('Copied  '+token)).catch(()=>toast(token));
+      });
+      apply();
+    }
+    document.addEventListener('astro:page-load', init);
+  </script>
+</Base>

@@ -1,0 +1,535 @@
+---
+import Base from '../layouts/Base.astro';
+import { galaxyData } from '../lib/galaxy/data.js';
+import topics from '../data/topics.json';
+
+const data = await galaxyData();
+
+// Group items by topic for the accessible fallback list
+const itemsByTopic: Record<string, typeof data.items> = {};
+for (const item of data.items) {
+  if (!itemsByTopic[item.topic]) itemsByTopic[item.topic] = [];
+  itemsByTopic[item.topic].push(item);
+}
+
+// Build the list of topics that actually have posts (preserves topics.json order)
+const topicsWithPosts = topics.filter((t) => itemsByTopic[t.tag]?.length);
+---
+
+<Base title="The Observatory" description="Every article as an orbital system — topic constellations as planets, posts as comets around the author.">
+
+  <!-- =========================================================
+       Full-viewport canvas section
+       ========================================================= -->
+  <section class="galaxy-stage" aria-label="The Observatory — all articles as an orbital system">
+    <canvas id="galaxy-canvas" aria-hidden="true"></canvas>
+    <div id="galaxy-overlay" aria-hidden="true"></div>
+
+    <!-- on-canvas page title (top-left) — gives the scene context, shows on mobile too -->
+    <div class="obs-title" aria-hidden="true">
+      <p class="obs-title-eyebrow">The Observatory</p>
+    </div>
+
+    <!-- legend: one button per planet — built from data.planets -->
+    <aside class="galaxy-legend" aria-label="Constellations — click to navigate to a planet">
+      <p class="legend-title">Constellations</p>
+      {data.planets.map((p) => (
+        <button
+          class="legend-row"
+          data-slug={p.slug}
+          aria-label={`Focus on ${p.name} — ${p.subtitle}, ${p.count} posts`}
+          type="button"
+        >
+          <span class="legend-dot" style={`background:${p.color}; box-shadow: 0 0 8px ${p.color}55`} aria-hidden="true"></span>
+          <span class="legend-name">{p.name}</span>
+          <span class="legend-sub">{p.subtitle}</span>
+          <span class="legend-count">{p.count}</span>
+        </button>
+      ))}
+    </aside>
+
+    <!-- mobile-only constellation accordion (shown ≤640px) — expands IN-PAGE (no OS
+         popup): tap to reveal the list, tap a constellation to focus its icons. -->
+    <div class="obs-mobile-pick">
+      <div class="obs-acc-panel" id="obs-acc-panel" hidden>
+        {data.planets.map((p) => (
+          <button class="obs-acc-row" data-slug={p.slug} type="button"
+            aria-label={`Focus on ${p.name} — ${p.subtitle}, ${p.count} posts`}>
+            <span class="obs-acc-dot" style={`background:${p.color}; box-shadow:0 0 8px ${p.color}88`} aria-hidden="true"></span>
+            <span class="obs-acc-name">{p.name}</span>
+            <span class="obs-acc-sub">{p.subtitle}</span>
+            <span class="obs-acc-count">{p.count}</span>
+          </button>
+        ))}
+      </div>
+      <button class="obs-acc-toggle" id="obs-acc-toggle" type="button" aria-expanded="false" aria-controls="obs-acc-panel">
+        <span>Constellations</span><span class="obs-acc-caret" aria-hidden="true">▾</span>
+      </button>
+    </div>
+
+    <!-- first-view hint near the bottom — encourages drag-to-explore; fades after a few seconds, never blocks taps -->
+    <p class="obs-hint" aria-hidden="true">
+      <svg class="obs-hint-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20 12a8 8 0 1 1-2.3-5.6" />
+        <path d="M20 4v3.4h-3.4" />
+        <circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" />
+      </svg>
+      <span>Drag to explore · tap a planet to open</span>
+    </p>
+  </section>
+
+  <!-- pass data to the client script via an inline JSON element (same pattern as GalaxyHero) -->
+  <script type="application/json" id="galaxy-data" set:html={JSON.stringify(data)}></script>
+
+  <!-- =========================================================
+       Accessible fallback: always server-rendered, no JS needed
+       ========================================================= -->
+  <section class="section" id="constellations">
+    <div class="container">
+      <div class="constellation-grid">
+        {topicsWithPosts.map((topic, ti) => {
+          const posts = itemsByTopic[topic.tag];
+          return (
+            <div class="constellation-block" data-reveal data-delay={String(Math.min(ti * 0.06, 0.3))}>
+              <div class="const-header">
+                <span class="const-dot" style={`background:${topic.color}; box-shadow: 0 0 10px ${topic.color}55`} aria-hidden="true"></span>
+                <div>
+                  <h3 class="const-name" style={`color:${topic.color}`}>{topic.name}</h3>
+                  <p class="const-sub">{topic.subtitle}</p>
+                </div>
+                <span class="const-count">{posts.length}</span>
+              </div>
+              <ul class="const-post-list" aria-label={`Articles in ${topic.name}`}>
+                {posts.map((item) => (
+                  <li>
+                    <a href={item.url} class="const-post-link">{item.title}</a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  </section>
+
+</Base>
+
+<!-- =========================================================
+     Lazy-init script: mirrors GalaxyHero exactly, mode:'system'
+     ========================================================= -->
+<script>
+  let handle: { dispose: () => void; focusPlanet: (slug: string) => string | null } | null = null;
+
+  async function initGalaxyPage() {
+    const canvas = document.getElementById('galaxy-canvas') as HTMLCanvasElement | null;
+    const overlay = document.getElementById('galaxy-overlay');
+    const dataEl = document.getElementById('galaxy-data');
+    if (!canvas || !overlay || !dataEl || handle) return;
+
+    let data;
+    try { data = JSON.parse(dataEl.textContent || '{}'); } catch { return; }
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    try {
+      const { initGalaxy } = await import('../scripts/galaxy.js');
+      handle = initGalaxy({ canvas, overlay, mode: 'system', data, prefersReducedMotion });
+
+      // Wire the desktop legend AND the mobile chip-row via event delegation —
+      // both use [data-slug] buttons, so one handler covers either container.
+      // Reflect the active topic on every guide row (legend + accordion).
+      const markFocused = (active: string | null) => {
+        document.querySelectorAll<HTMLElement>('[data-slug]').forEach((el) =>
+          el.classList.toggle('focused', !!active && el.dataset.slug === active));
+      };
+      const focusFromContainer = (e: Event) => {
+        if (!handle) return;
+        const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-slug]');
+        if (btn?.dataset.slug) markFocused(handle.focusPlanet(btn.dataset.slug));
+      };
+      document.querySelector('.galaxy-legend')?.addEventListener('click', focusFromContainer);
+
+      // The engine clears focus when you tap empty space — keep the guide rows in sync.
+      overlay.addEventListener('gx-focuschange', (e) => markFocused((e as CustomEvent).detail?.topic ?? null));
+
+      // mobile: an in-page accordion — toggle reveals the list, a row focuses + collapses.
+      const accToggle = document.getElementById('obs-acc-toggle');
+      const accPanel = document.getElementById('obs-acc-panel');
+      accToggle?.addEventListener('click', () => {
+        const willOpen = accPanel?.hasAttribute('hidden');
+        if (willOpen) { accPanel?.removeAttribute('hidden'); accToggle.setAttribute('aria-expanded', 'true'); }
+        else { accPanel?.setAttribute('hidden', ''); accToggle.setAttribute('aria-expanded', 'false'); }
+      });
+      accPanel?.addEventListener('click', (e) => {
+        const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-slug]');
+        if (handle && btn?.dataset.slug) {
+          markFocused(handle.focusPlanet(btn.dataset.slug));
+          accPanel.setAttribute('hidden', '');
+          accToggle?.setAttribute('aria-expanded', 'false');
+        }
+      });
+
+      // First-view hint: fade it out after a few seconds (kept inert to taps).
+      const hint = document.querySelector<HTMLElement>('.obs-hint');
+      if (hint) window.setTimeout(() => hint.classList.add('is-gone'), 8000);
+    } catch (err) {
+      // WebGL unavailable or import failed — the fallback gradient and list remain.
+      console.warn('[galaxy] page init failed', err);
+    }
+  }
+
+  function teardownGalaxyPage() {
+    if (handle) { handle.dispose(); handle = null; }
+  }
+
+  document.addEventListener('astro:page-load', initGalaxyPage);
+  document.addEventListener('astro:before-swap', teardownGalaxyPage);
+</script>
+
+<style>
+  /* ---- full-viewport canvas stage ---- */
+  .galaxy-stage {
+    position: relative;
+    width: 100%;
+    /* vh fallback first, then dynamic viewport units so mobile address-bar
+       chrome doesn't clip the canvas or cause a jump. */
+    height: calc(100vh - var(--header-h));
+    height: calc(100svh - var(--header-h));
+    overflow: hidden;
+    /* fallback gradient — visible until WebGL takes over (mirrors GalaxyHero) */
+    background:
+      radial-gradient(ellipse 55% 50% at 50% 46%, rgba(34, 211, 238, 0.14), transparent 65%),
+      radial-gradient(ellipse 40% 38% at 28% 68%, rgba(129, 140, 248, 0.11), transparent 65%),
+      radial-gradient(ellipse 32% 30% at 70% 62%, rgba(45, 212, 191, 0.09), transparent 65%),
+      var(--bg-0);
+  }
+
+  #galaxy-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  #galaxy-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  /* allow the engine's cards to receive clicks */
+  #galaxy-overlay :global(.gx-card) { pointer-events: auto; }
+
+  /* ---- on-canvas page title (top-left) ---- */
+  .obs-title {
+    position: absolute;
+    top: 1.4rem;
+    left: 1.4rem;
+    z-index: 10;
+    max-width: min(70vw, 30rem);
+    pointer-events: none;
+    /* soft scrim so the headline stays legible over the busy 3D */
+    text-shadow:
+      0 2px 18px rgba(4, 6, 12, 0.95),
+      0 0 38px rgba(4, 6, 12, 0.85);
+  }
+
+  .obs-title-eyebrow {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 4.4vw, 2.4rem);
+    font-weight: 700;
+    line-height: 1.04;
+    letter-spacing: -0.02em;
+    color: #fff;
+  }
+
+  .obs-title-sub {
+    font-family: var(--font-display);
+    font-size: clamp(0.78rem, 2.2vw, 0.95rem);
+    letter-spacing: 0.04em;
+    color: var(--ink-dim);
+    margin-top: 0.4rem;
+  }
+
+  /* ---- legend panel ---- */
+  /* light themes: a LIGHT legend panel so the dark ink text reads (default panel is dark) */
+  :global(:is([data-site-theme="daybreak"], [data-site-theme="dune"], [data-site-theme="rivendell"])) .galaxy-legend {
+    background: rgba(255, 255, 255, 0.82);
+  }
+  .galaxy-legend {
+    position: absolute;
+    top: 1.2rem;
+    right: 1.2rem;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 0.08rem;
+    background: rgba(4, 6, 12, 0.78);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    padding: 0.55rem 0.65rem;
+    min-width: 150px;
+    pointer-events: auto;
+  }
+
+  .legend-title {
+    font-family: var(--font-display);
+    font-size: 0.6rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 0.2rem;
+  }
+
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: 100%;
+    padding: 0.2em 0.4em;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    text-align: left;
+    transition: background 0.2s, border-color 0.2s;
+    cursor: pointer;
+  }
+
+  .legend-row:hover {
+    background: rgba(140, 160, 200, 0.08);
+    border-color: var(--line-strong);
+  }
+  /* active topic (focus): both guide containers use [data-slug] rows */
+  .legend-row.focused, .obs-acc-row.focused {
+    background: rgba(34, 211, 238, 0.12);
+    border-color: rgba(34, 211, 238, 0.45);
+    box-shadow: inset 0 0 16px rgba(34, 211, 238, 0.08);
+  }
+
+  .legend-dot {
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: block;
+  }
+
+  .legend-name {
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--ink);
+    flex: 1;
+    white-space: nowrap;
+  }
+
+  .legend-sub {
+    font-family: var(--font-display);
+    font-size: 0.64rem;
+    color: var(--ink-faint);
+    white-space: nowrap;
+  }
+
+  .legend-count {
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    color: var(--ink-faint);
+    border: 1px solid var(--line-strong);
+    border-radius: 99px;
+    padding: 0.05em 0.5em;
+    min-width: 1.8em;
+    text-align: center;
+  }
+
+  /* ---- mobile constellation dropdown (hidden above 640px) ---- */
+  .obs-mobile-pick { display: none; /* desktop: the legend covers navigation */ }
+
+  /* ---- first-view hint ---- */
+  .obs-hint {
+    position: absolute;
+    left: 50%;
+    bottom: 1.4rem;
+    transform: translateX(-50%);
+    z-index: 9;
+    pointer-events: none; /* never block taps on the canvas */
+    max-width: 92vw;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    color: var(--ink-dim);
+    padding: 0.45rem 0.95rem;
+    border-radius: 99px;
+    background: rgba(4, 6, 12, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--line);
+    text-shadow: 0 1px 10px rgba(4, 6, 12, 0.9);
+    transition: opacity 0.8s ease;
+  }
+  .obs-hint-icon { flex: none; color: var(--accent); animation: obs-drag-nudge 2.4s ease-in-out infinite; }
+  @keyframes obs-drag-nudge { 0%, 100% { transform: translateX(-2.5px); } 50% { transform: translateX(2.5px); } }
+
+  .obs-hint.is-gone { opacity: 0; }
+
+  /* hide legend on small screens; show the chip-row + reposition the hint */
+  @media (max-width: 640px) {
+    .galaxy-legend { display: none; }
+
+    .obs-mobile-pick {
+      position: absolute;
+      left: 0.9rem; right: 0.9rem; bottom: 0.9rem;
+      z-index: 10; display: flex; flex-direction: column; gap: 0.4rem; pointer-events: auto;
+    }
+    .obs-acc-toggle {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; cursor: pointer;
+      font-family: var(--font-display); font-size: 0.9rem; font-weight: 600; color: var(--ink);
+      background: rgba(4, 6, 12, 0.86); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--line-strong); border-radius: 99px; padding: 0.75rem 1.2rem;
+    }
+    .obs-acc-caret { color: var(--cyan); transition: transform 0.25s; }
+    .obs-acc-toggle[aria-expanded="true"] .obs-acc-caret { transform: rotate(180deg); }
+    .obs-acc-panel {
+      display: flex; flex-direction: column; gap: 0.15rem;
+      background: rgba(4, 6, 12, 0.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--line-strong); border-radius: 16px;
+      padding: 0.4rem; max-height: 52vh; overflow-y: auto;
+    }
+    .obs-acc-panel[hidden] { display: none; }
+    /* light themes: the mobile constellation picker needs light panels (dark ink text) */
+    :global(:is([data-site-theme="daybreak"], [data-site-theme="dune"], [data-site-theme="rivendell"])) .obs-acc-toggle,
+    :global(:is([data-site-theme="daybreak"], [data-site-theme="dune"], [data-site-theme="rivendell"])) .obs-acc-panel {
+      background: rgba(255, 255, 255, 0.9);
+    }
+    .obs-acc-row {
+      display: flex; align-items: center; gap: 0.6rem; width: 100%; text-align: left; cursor: pointer;
+      font-family: var(--font-display); font-size: 0.92rem; color: var(--ink);
+      background: transparent; border: 1px solid transparent; border-radius: 10px; padding: 0.6rem 0.7rem;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .obs-acc-row:active { background: rgba(140, 160, 200, 0.12); }
+    .obs-acc-dot { flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%; display: block; }
+    .obs-acc-name { font-weight: 600; }
+    .obs-acc-sub { flex: 1; color: var(--ink-faint); font-size: 0.78rem; }
+    .obs-acc-count {
+      color: var(--ink-faint); font-size: 0.78rem; border: 1px solid var(--line-strong);
+      border-radius: 99px; padding: 0.05em 0.5em; min-width: 1.8em; text-align: center;
+    }
+
+    /* lift the hint above the dropdown on mobile */
+    .obs-hint {
+      bottom: 4.4rem;
+      font-size: 0.72rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .obs-hint { transition: none; }
+    .obs-hint-icon { animation: none; }
+  }
+
+  /* ---- fallback constellation list ---- */
+  .fallback-intro {
+    margin-bottom: 2.8rem;
+  }
+
+  .constellation-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.4rem;
+  }
+
+  .constellation-block {
+    background: linear-gradient(160deg, var(--bg-2), var(--bg-1));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.4rem 1.5rem;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .constellation-block:hover {
+    border-color: rgba(140, 160, 200, 0.28);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+
+  .const-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    margin-bottom: 1rem;
+  }
+
+  .const-dot {
+    flex-shrink: 0;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: block;
+    margin-top: 0.35rem;
+  }
+
+  .const-name {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+  }
+
+  .const-sub {
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.04em;
+    margin-top: 0.15rem;
+  }
+
+  .const-count {
+    margin-left: auto;
+    flex-shrink: 0;
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    border: 1px solid var(--line-strong);
+    border-radius: 99px;
+    padding: 0.1em 0.6em;
+    align-self: flex-start;
+  }
+
+  .const-post-list {
+    list-style: none;
+    display: grid;
+    gap: 0.3rem;
+  }
+
+  .const-post-list li {
+    padding-left: 0.9rem;
+    position: relative;
+  }
+
+  .const-post-list li::before {
+    content: "›";
+    position: absolute;
+    left: 0;
+    color: var(--ink-faint);
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .const-post-link {
+    font-size: 0.9rem;
+    color: var(--ink-dim);
+    transition: color 0.2s, text-shadow 0.2s;
+    line-height: 1.4;
+  }
+
+  .const-post-link:hover {
+    color: var(--cyan);
+    text-shadow: 0 0 10px rgba(34, 211, 238, 0.4);
+  }
+</style>

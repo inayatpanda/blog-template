@@ -1,0 +1,11 @@
+{
+  "name": "Your Name",
+  "masthead": "Your Blog Name",
+  "tagline": "A line about your blog.",
+  "description": "A sentence describing your blog — used for SEO and social cards.",
+  "url": "https://your-domain.com",
+  "defaultTheme": "observatory",
+  "socials": { "linkedin": "", "instagram": "", "github": "" },
+  "newsletter": { "endpoint": "https://formspree.io/f/your-id" },
+  "contact": { "endpoint": "https://formspree.io/f/your-id" }
+}

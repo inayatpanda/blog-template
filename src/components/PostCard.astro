@@ -1,0 +1,47 @@
+---
+// Reusable post card. Used on the home (Latest + Interactive), the archive
+// (/writing/) and constellation pages (/c/<tag>/).
+// Styling lives in global.css (.post-card, .post-meta, .tag-chip,
+// .badge-interactive) so the markup reads identically everywhere it appears.
+interface Post {
+  slug: string;
+  data: {
+    title: string;
+    description: string;
+    date: Date;
+    tags: string[];
+    accent: string;
+  };
+}
+interface Props {
+  post: Post;
+  // optional reveal wiring so each call site can keep its GSAP stagger
+  reveal?: boolean;
+  delay?: number | string;
+  readMins?: number;
+}
+const { post, reveal = false, delay, readMins } = Astro.props;
+const fmt = (d: Date) =>
+  d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const revealAttrs = reveal
+  ? { 'data-reveal': true, ...(delay != null ? { 'data-delay': String(delay) } : {}) }
+  : {};
+---
+<a
+  class="post-card"
+  href={`/blog/${post.slug}/`}
+  data-tags={post.data.tags.join(',')}
+  style={`--card-accent:${post.data.accent}`}
+  {...revealAttrs}
+>
+  <div class="post-meta">
+    <time datetime={post.data.date.toISOString()}>{fmt(post.data.date)}</time>
+    {readMins ? <span class="pc-read">{readMins} min</span> : null}
+    {post.data.tags.includes('interactive') && <span class="badge-interactive">Interactive</span>}
+    {post.data.tags.filter((t) => t !== 'interactive').slice(0, 3).map((t) => (
+      <span class="tag-chip">{t}</span>
+    ))}
+  </div>
+  <h3>{post.data.title}</h3>
+  <p>{post.data.description}</p>
+</a>

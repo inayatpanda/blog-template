@@ -1,0 +1,290 @@
+---
+// GlyphBadge.astro — small spinning wireframe glyph beside a post title.
+// Decorative only (aria-hidden). Rendered only when a real 3D glyph exists.
+// Lazy three.js init, pauses off-screen, static frame under reduced-motion,
+// disposes on page swap. Mirrors GalaxyHero.astro patterns exactly.
+
+import { resolveGlyph } from '../lib/glyphs/index.js';
+import { iconInner } from '../lib/icons.js';
+
+interface Props {
+  glyph?: string;
+  topic: string;
+}
+
+const { glyph, topic } = Astro.props;
+
+// Guard: no canvas if glyph is explicitly suppressed or not a 3D model.
+const isNone    = glyph === 'none';
+const isIcon    = typeof glyph === 'string' && glyph.startsWith('icon:');
+const isIcon3d  = typeof glyph === 'string' && glyph.startsWith('icon3d:');
+const isImage   = typeof glyph === 'string' && glyph.startsWith('image:');
+const hasModel  = !isNone && !isIcon && !isIcon3d && !isImage && resolveGlyph(glyph ?? null, topic) !== null;
+
+// 2D Tabler-icon glyph (icon:<name>) — themeable line badge, no WebGL.
+const iconName  = isIcon ? glyph.slice(5) : null;
+const iconSvg   = iconName ? iconInner(iconName) : null;
+
+// Auto-3D glyph (icon3d:<name>) — extrude the icon's stroke paths into a spinning
+// wireframe. Pass the raw path `d` strings to the client to sample at runtime.
+const icon3dName  = isIcon3d ? glyph.slice(7) : null;
+const icon3dInner = icon3dName ? iconInner(icon3dName) : null;
+const icon3dPaths = icon3dInner
+  ? [...icon3dInner.matchAll(/<path[^>]*\sd="([^"]+)"/g)].map((m) => m[1]).filter((d) => !/^M0 0h24v24H0z$/.test(d.trim()))
+  : [];
+---
+
+{hasModel && (
+  <div class="glyph-badge" aria-hidden="true">
+    <canvas
+      class="glyph-badge-canvas"
+      width="120"
+      height="120"
+      data-glyph={glyph || ''}
+      data-topic={topic}
+    ></canvas>
+  </div>
+)}
+
+{iconSvg && (
+  <div class="glyph-badge glyph-icon" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+         stroke-linecap="round" stroke-linejoin="round" set:html={iconSvg} />
+  </div>
+)}
+
+{icon3dPaths.length > 0 && (
+  <div class="glyph-badge" aria-hidden="true">
+    <canvas
+      class="glyph-badge-canvas"
+      width="120"
+      height="120"
+      data-icon3d={icon3dName}
+      data-paths={JSON.stringify(icon3dPaths)}
+      data-topic={topic}
+    ></canvas>
+  </div>
+)}
+
+<style>
+  .glyph-badge {
+    /* Float right on desktop, centred above title at mobile — see [slug].astro wrapper */
+    width: 120px;
+    height: 120px;
+    flex-shrink: 0;
+  }
+  .glyph-badge-canvas {
+    width: 120px;
+    height: 120px;
+    display: block;
+  }
+  /* 2D icon glyph — themed line + glow, gentle sway */
+  .glyph-icon {
+    display: grid; place-items: center;
+    color: var(--post-accent, #22d3ee);
+  }
+  .glyph-icon svg {
+    width: 88px; height: 88px;
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--post-accent, #22d3ee) 55%, transparent));
+    animation: glyph-sway 7s ease-in-out infinite;
+  }
+  @keyframes glyph-sway {
+    0%, 100% { transform: rotate(-5deg) translateY(0); }
+    50%      { transform: rotate(5deg) translateY(-4px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .glyph-icon svg { animation: none; }
+  }
+</style>
+
+<script>
+  // Per-canvas state keyed by canvas element reference.
+  interface BadgeState {
+    raf: number | null;
+    observer: IntersectionObserver | null;
+    renderer: import('three').WebGLRenderer | null;
+    paused: boolean;
+  }
+  const stateMap = new WeakMap<HTMLCanvasElement, BadgeState>();
+
+  // Turn an icon's SVG stroke paths into a spinning 3D wireframe: sample each path
+  // and duplicate front/back with connectors → an extruded wireframe of the outline.
+  function buildIcon3D(THREE: typeof import('three'), pathDs: string[], c1: number, c2: number) {
+    const group = new THREE.Group();
+    const DEPTH = 1.1;
+    const SVGNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('width', '0'); svg.setAttribute('height', '0');
+    svg.style.cssText = 'position:absolute;opacity:0;pointer-events:none;left:-9999px';
+    document.body.appendChild(svg);
+    const matFace = new THREE.LineBasicMaterial({ color: c1, transparent: true, opacity: 0.95 });
+    const matEdge = new THREE.LineBasicMaterial({ color: c2, transparent: true, opacity: 0.5 });
+    try {
+      for (const d of pathDs) {
+        const p = document.createElementNS(SVGNS, 'path');
+        p.setAttribute('d', d); svg.appendChild(p);
+        let len = 0; try { len = p.getTotalLength(); } catch { len = 0; }
+        if (!len) { svg.removeChild(p); continue; }
+        const n = Math.max(6, Math.min(80, Math.round(len / 1.6)));
+        const front: import('three').Vector3[] = [], back: import('three').Vector3[] = [];
+        for (let i = 0; i <= n; i++) {
+          const pt = p.getPointAtLength((len * i) / n);
+          const x = (pt.x - 12) / 12, y = -(pt.y - 12) / 12;
+          front.push(new THREE.Vector3(x, y, DEPTH / 2));
+          back.push(new THREE.Vector3(x, y, -DEPTH / 2));
+        }
+        group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(front), matFace));
+        group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(back), matFace));
+        for (let i = 0; i <= n; i += 3) {
+          group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([front[i], back[i]]), matEdge));
+        }
+        svg.removeChild(p);
+      }
+    } finally { document.body.removeChild(svg); }
+    return group;
+  }
+
+  async function initBadge(canvas: HTMLCanvasElement) {
+    if (canvas.dataset.init) return;
+    canvas.dataset.init = '1';
+
+    const glyphAttr = canvas.dataset.glyph || '';
+    const topicAttr = canvas.dataset.topic || 'forge';
+
+    const prefersReducedMotion =
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    let THREE: typeof import('three');
+    let resolveGlyph: (name: string | null, topic: string) => ((THREE: typeof import('three'), c1: number, c2: number) => import('three').Group) | null;
+    let PALETTE: Record<string, number>;
+    let ACCENTS: Record<string, number>;
+
+    try {
+      // three has no default export — bind the whole module namespace
+      const [threeMod, glyphsMod, paletteMod] = await Promise.all([
+        import('three'),
+        import('../lib/glyphs/index.js'),
+        import('../lib/galaxy/palette.js'),
+      ]);
+      THREE = threeMod;
+      resolveGlyph = glyphsMod.resolveGlyph;
+      PALETTE = paletteMod.PALETTE;
+      ACCENTS = paletteMod.ACCENTS;
+    } catch (err) {
+      console.warn('[glyph-badge] module import failed', err);
+      const badge = canvas.closest('.glyph-badge') as HTMLElement | null;
+      if (badge) badge.style.display = 'none';
+      return;
+    }
+
+    // Re-check at runtime (resolveGlyph needs GLYPHS loaded).
+    const icon3d = canvas.dataset.icon3d || '';
+    const builder = icon3d ? null : resolveGlyph(glyphAttr || null, topicAttr);
+    if (!icon3d && !builder) {
+      const badge = canvas.closest('.glyph-badge') as HTMLElement | null;
+      if (badge) badge.style.display = 'none';
+      return;
+    }
+
+    const color1 = PALETTE[topicAttr] ?? PALETTE['marrow'];
+    const color2 = ACCENTS[topicAttr] ?? ACCENTS['marrow'];
+
+    // Scene setup.
+    const scene    = new THREE.Scene();
+    const camera   = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+    camera.position.set(0, 0, 3.5);
+
+    let renderer: import('three').WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.setSize(120, 120, false); // false = don't set style (CSS controls size)
+      renderer.setClearColor(0x000000, 0);
+    } catch (err) {
+      console.warn('[glyph-badge] WebGL init failed', err);
+      const badge = canvas.closest('.glyph-badge') as HTMLElement | null;
+      if (badge) badge.style.display = 'none';
+      return;
+    }
+
+    // Build glyph and normalise to ≈1.6 units tall/wide.
+    const obj = icon3d
+      ? buildIcon3D(THREE, JSON.parse(canvas.dataset.paths || '[]'), color1, color2)
+      : builder!(THREE, color1, color2);
+    const box = new THREE.Box3().setFromObject(obj);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    if (maxDim > 0) obj.scale.setScalar(1.6 / maxDim);
+
+    // Re-centre after scale.
+    const box2 = new THREE.Box3().setFromObject(obj);
+    const centre = new THREE.Vector3();
+    box2.getCenter(centre);
+    obj.position.sub(centre);
+
+    scene.add(obj);
+
+    const state: BadgeState = { raf: null, observer: null, renderer, paused: false };
+    stateMap.set(canvas, state);
+
+    function render() {
+      renderer.render(scene, camera);
+    }
+
+    if (prefersReducedMotion) {
+      // Single static frame — glyph visible but not animated.
+      render();
+      return;
+    }
+
+    // Rotation loop.
+    let lastTime = 0;
+    function loop(ts: number) {
+      if (state.paused) { state.raf = requestAnimationFrame(loop); return; }
+      const dt = Math.min((ts - lastTime) / 1000, 0.05); // cap at 50 ms to avoid jump on tab-restore
+      lastTime = ts;
+      obj.rotation.y += dt * 0.55; // ~0.55 rad/s — slow turntable
+      render();
+      state.raf = requestAnimationFrame(loop);
+    }
+    state.raf = requestAnimationFrame((ts) => { lastTime = ts; loop(ts); });
+
+    // Pause when off-screen.
+    state.observer = new IntersectionObserver(
+      ([entry]) => { state.paused = !entry.isIntersecting; },
+      { threshold: 0 }
+    );
+    state.observer.observe(canvas);
+  }
+
+  async function initAll() {
+    const canvases = document.querySelectorAll<HTMLCanvasElement>(
+      '.glyph-badge canvas:not([data-init])'
+    );
+    for (const canvas of canvases) {
+      initBadge(canvas);
+    }
+  }
+
+  function teardownAll() {
+    const canvases = document.querySelectorAll<HTMLCanvasElement>(
+      '.glyph-badge canvas[data-init]'
+    );
+    for (const canvas of canvases) {
+      const state = stateMap.get(canvas);
+      if (!state) continue;
+      if (state.raf !== null) { cancelAnimationFrame(state.raf); state.raf = null; }
+      if (state.observer) { state.observer.disconnect(); state.observer = null; }
+      if (state.renderer) {
+        state.renderer.dispose();
+        state.renderer = null;
+      }
+      canvas.removeAttribute('data-init');
+      stateMap.delete(canvas);
+    }
+  }
+
+  document.addEventListener('astro:page-load', initAll);
+  document.addEventListener('astro:before-swap', teardownAll);
+</script>

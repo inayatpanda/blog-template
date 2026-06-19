@@ -1,0 +1,89 @@
+---
+import Base from '../../layouts/Base.astro';
+import PostCard from '../../components/PostCard.astro';
+import { getCollection } from 'astro:content';
+import { buildSeries } from '../../lib/series';
+
+export async function getStaticPaths() {
+  const posts = (await getCollection('blog', ({ data }) => !data.draft))
+    .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+  const groups = buildSeries(posts);
+  // A series page is worth building only when the series has 2+ parts.
+  return [...groups.values()]
+    .filter((s) => s.posts.length >= 2)
+    .map((s) => ({ params: { slug: s.slug }, props: { series: s } }));
+}
+
+const { series } = Astro.props;
+const count = series.posts.length;
+const readMins = (entry: any) =>
+  Math.max(1, Math.round((entry.body || '').split(/\s+/).filter(Boolean).length / 200));
+const desc = `A ${count}-part series — ${series.name}.`;
+---
+<Base title={series.name} description={desc} progress>
+  <section class="section series-page">
+    <div class="orbs"><div class="orb orb-b" style="opacity:0.3"></div></div>
+    <div class="container">
+
+      <a class="back-link" href="/writing/" data-reveal>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M19 12H5m6 6-6-6 6-6"/></svg>
+        All writing
+      </a>
+
+      <header class="series-head" data-reveal data-delay="0.06">
+        <span class="series-eyebrow">Series</span>
+        <h1 class="display series-title">{series.name}</h1>
+        <p class="series-count">{count} parts · read in order</p>
+      </header>
+
+      <ol class="series-list">
+        {series.posts.map((p, i) => (
+          <li class="series-item" data-reveal data-delay={Math.min(i * 0.06, 0.3)}>
+            <span class="series-part-no" aria-hidden="true">{i + 1}</span>
+            <PostCard post={p} readMins={readMins(p)} />
+          </li>
+        ))}
+      </ol>
+
+    </div>
+  </section>
+</Base>
+
+<style>
+  .series-page { position: relative; }
+  .series-page .container { position: relative; z-index: 1; }
+
+  .back-link {
+    display: inline-flex; align-items: center; gap: 0.45em;
+    font-family: var(--font-display); font-size: 0.88rem; color: var(--ink-faint);
+    transition: color 0.2s;
+  }
+  .back-link:hover { color: var(--cyan); }
+
+  .series-head { margin: 1.6rem 0 2.4rem; max-width: 60ch; }
+  .series-eyebrow {
+    font-family: var(--font-display); font-size: 0.74rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--cyan); font-weight: 700;
+  }
+  .series-title { font-size: clamp(2rem, 6vw, 3.4rem); line-height: 1.05; margin-top: 0.6rem; }
+  .series-count {
+    font-family: var(--font-display); font-size: 0.82rem; letter-spacing: 0.06em;
+    color: var(--ink-faint); margin-top: 0.9rem;
+  }
+
+  .series-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.1rem; }
+  .series-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1rem; align-items: start; }
+  .series-part-no {
+    flex: 0 0 auto; width: 2.1em; height: 2.1em; margin-top: 0.4rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 50%; border: 1px solid rgba(34, 211, 238, 0.4);
+    background: rgba(34, 211, 238, 0.06);
+    font-family: var(--font-display); font-size: 0.95rem; font-weight: 700; color: var(--cyan);
+  }
+  /* PostCard is a child component (own scope) → :global to let it fill the cell */
+  .series-item :global(.post-card) { margin: 0; }
+  @media (max-width: 560px) {
+    .series-item { grid-template-columns: auto minmax(0, 1fr); gap: 0.7rem; }
+    .series-part-no { width: 1.8em; height: 1.8em; font-size: 0.85rem; }
+  }
+</style>

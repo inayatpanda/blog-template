@@ -1,0 +1,363 @@
+---
+import Base from '../layouts/Base.astro';
+import ThreeHero from '../components/ThreeHero.astro';
+import PostCard from '../components/PostCard.astro';
+import topics from '../data/topics.json';
+import profile from '../data/profile.json';
+import { site } from '../lib/site';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('blog', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+// Latest: 6 newest.
+const latest = posts.slice(0, 6);
+
+// Interactive rail: posts tagged "interactive", newest first.
+const interactive = posts.filter((p) => p.data.tags.includes('interactive'));
+
+// Browse-by-constellation: the 7 broad topics with a post count.
+const tagCount = (tag: string) => posts.filter((p) => p.data.tags.includes(tag)).length;
+const constellations = topics.map((t) => ({
+  name: t.name,
+  subtitle: t.subtitle,
+  tag: t.tag,
+  color: t.color,
+  blurb: (t as any).blurb ?? '',
+  count: tagCount(t.tag),
+}));
+
+// --- SEO/AEO: WebSite + Person JSON-LD for the home page ---
+const cleanSocials = Object.values(site.socials).filter((u) => u && !u.startsWith('#'));
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebSite',
+      '@id': `${site.url}/#website`,
+      url: `${site.url}/`,
+      name: site.masthead,
+      description: site.description,
+      inLanguage: 'en-GB',
+      publisher: { '@id': `${site.url}/#person` },
+    },
+    {
+      '@type': 'Person',
+      '@id': `${site.url}/#person`,
+      name: site.name,
+      jobTitle: profile.role,
+      url: `${site.url}/`,
+      description: profile.tagline,
+      worksFor: { '@type': 'Organisation', name: profile.trust },
+      ...(cleanSocials.length ? { sameAs: cleanSocials } : {}),
+    },
+  ],
+};
+---
+<Base title={site.masthead} progress>
+  <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+
+  <!-- ================= HERO ================= -->
+  <section class="hero">
+    <ThreeHero />
+    <div class="hero-scrim" aria-hidden="true"></div>
+    <div class="container hero-content">
+      <h1 class="display masthead scrim-text" data-reveal data-delay="0.08">{site.masthead}</h1>
+      <p class="lead scrim-text" data-reveal data-delay="0.16">{site.tagline}</p>
+      <div class="hero-cues" data-reveal data-delay="0.24">
+        <a class="btn btn-primary" href="#latest">Read the latest</a>
+        <a class="btn btn-ghost" href="/about/">About me</a>
+      </div>
+    </div>
+    <div class="scroll-cue" aria-hidden="true"><span></span></div>
+  </section>
+
+  <!-- ================= LATEST ================= -->
+  <section class="section" id="latest" data-reveal>
+    <div class="orbs"><div class="orb orb-b" style="opacity:0.35"></div></div>
+    <div class="container">
+      <div class="section-head">
+        <h2 class="section-title">Latest</h2>
+        <span class="rule"></span>
+        <a class="see-all" href="/writing/">Browse all writing →</a>
+      </div>
+      <div class="post-list">
+        {latest.map((p, i) => (
+          <PostCard post={p} reveal delay={Math.min(i * 0.06, 0.3)} />
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= BROWSE BY CONSTELLATION ================= -->
+  <section class="section" id="constellations" data-reveal>
+    <div class="container">
+      <div class="section-head">
+        <h2 class="section-title">Browse by topic</h2>
+        <span class="rule"></span>
+        <a class="see-all" href="/observatory/">See the Observatory →</a>
+      </div>
+      <div class="const-grid">
+        {constellations.map((c, i) => (
+          <a
+            class="const-card"
+            href={`/c/${c.tag}/`}
+            style={`--c-accent:${c.color}`}
+            data-reveal
+            data-delay={String(Math.min(i * 0.05, 0.3))}
+          >
+            <div class="const-card-head">
+              <span class="const-card-dot" aria-hidden="true"></span>
+              <div class="const-card-titles">
+                <h3 class="const-card-name">{c.name}</h3>
+                <p class="const-card-sub">{c.subtitle}</p>
+              </div>
+              <span class="const-card-count">{c.count}</span>
+            </div>
+            {c.blurb && <p class="const-card-blurb">{c.blurb}</p>}
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= INTERACTIVE ================= -->
+  {interactive.length > 0 && (
+    <section class="section" id="interactive" data-reveal>
+      <div class="container">
+        <div class="section-head">
+          <h2 class="section-title">Check out the interactives</h2>
+          <span class="rule"></span>
+          <a class="see-all" href="/c/interactive/">All interactive →</a>
+        </div>
+        <p class="lead interactive-lead">Posts with sliders, toggles and things you can poke at.</p>
+        <div class="interactive-rail">
+          {interactive.map((p, i) => (
+            <div class="rail-item" data-reveal data-delay={String(Math.min(i * 0.06, 0.3))}>
+              <PostCard post={p} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )}
+
+  <!-- ================= EMAIL CAPTURE ================= -->
+  <section class="section subscribe" id="subscribe" data-reveal>
+    <div class="orbs"><div class="orb orb-a" style="opacity:0.3"></div></div>
+    <div class="container">
+      <div class="subscribe-card" data-reveal="scale">
+        <div class="subscribe-copy">
+          <h2 class="subscribe-title">New explainers, occasionally — by email</h2>
+          <p class="subscribe-sub">No schedule, no noise. A note when something new goes up. Unsubscribe whenever.</p>
+        </div>
+        <form class="subscribe-form" method="POST" action={site.newsletter.endpoint}>
+          <label class="visually-hidden" for="sub-email">Email address</label>
+          <input
+            id="sub-email"
+            name="email"
+            type="email"
+            required
+            autocomplete="email"
+            placeholder="you@example.com"
+          />
+          <button class="btn btn-primary" type="submit">Subscribe</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+</Base>
+
+<style>
+  .hero {
+    position: relative;
+    min-height: calc(72vh - var(--header-h));
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+  }
+  .hero-scrim {
+    position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse 70% 65% at 28% 52%, rgba(4, 6, 12, 0.82), transparent 70%),
+      linear-gradient(180deg, transparent 55%, var(--bg-0));
+  }
+  @media (max-width: 700px) {
+    /* compact hero on phones — no screenful of dead space above the content */
+    .hero { min-height: calc(54vh - var(--header-h)); }
+    .hero-scrim {
+      background:
+        radial-gradient(ellipse 110% 60% at 50% 62%, rgba(4, 6, 12, 0.88), transparent 78%),
+        linear-gradient(180deg, transparent 50%, var(--bg-0));
+    }
+  }
+  .hero-content { position: relative; z-index: 2; padding-block: 5rem; }
+  @media (max-width: 700px) { .hero-content { padding-block: 3rem; } }
+  .masthead {
+    font-size: clamp(2.6rem, 8vw, 5.2rem);
+    margin-top: 0.5rem;
+    color: #ffffff;
+    text-shadow:
+      0 2px 6px rgba(4, 6, 12, 0.95),
+      0 6px 30px rgba(4, 6, 12, 0.9),
+      0 0 50px rgba(34, 211, 238, 0.45),
+      0 0 110px rgba(34, 211, 238, 0.25);
+  }
+  /* Light themes: dark-ink headline with a soft WHITE halo, and a light hero scrim
+     (the default dark scrim/white headline are tuned for the dark themes). */
+  :root[data-site-theme="daybreak"] .masthead,
+  :root[data-site-theme="dune"] .masthead,
+  :root[data-site-theme="rivendell"] .masthead {
+    color: var(--ink);
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9), 0 3px 18px rgba(255, 255, 255, 0.85), 0 0 46px rgba(255, 255, 255, 0.6);
+  }
+  :root[data-site-theme="daybreak"] .hero-scrim,
+  :root[data-site-theme="dune"] .hero-scrim,
+  :root[data-site-theme="rivendell"] .hero-scrim {
+    background:
+      radial-gradient(ellipse 72% 66% at 28% 52%, rgba(255, 255, 255, 0.72), transparent 70%),
+      linear-gradient(180deg, transparent 55%, var(--bg-0));
+  }
+  .hero .lead { margin-top: 1.4rem; }
+  .hero-cues { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-top: 2.2rem; }
+
+  .scroll-cue {
+    position: absolute; left: 50%; bottom: 1.6rem; transform: translateX(-50%);
+    width: 24px; height: 38px; border: 2px solid var(--line-strong);
+    border-radius: 12px; z-index: 2;
+  }
+  .scroll-cue span {
+    position: absolute; left: 50%; top: 7px; width: 4px; height: 8px;
+    margin-left: -2px; border-radius: 2px; background: var(--cyan);
+    box-shadow: 0 0 10px var(--cyan);
+    animation: cue 1.8s ease-in-out infinite;
+  }
+  @keyframes cue { 50% { transform: translateY(12px); opacity: 0.3; } }
+  @media (prefers-reduced-motion: reduce) { .scroll-cue span { animation: none; } }
+
+  /* "see all →" link in a section head */
+  .see-all {
+    font-family: var(--font-display); font-size: 0.9rem; color: var(--cyan);
+    white-space: nowrap; transition: text-shadow 0.2s;
+  }
+  .see-all:hover { text-shadow: 0 0 12px rgba(34, 211, 238, 0.5); }
+
+  /* shared stacked card list */
+  .post-list { position: relative; z-index: 1; display: grid; gap: 1.1rem; }
+
+  /* ---- Browse-by-constellation grid ---- */
+  .const-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1.2rem;
+  }
+  .const-card {
+    display: block; position: relative;
+    background: linear-gradient(160deg, var(--bg-2), var(--bg-1));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.3rem 1.4rem 1.4rem 1.6rem;
+    overflow: hidden;
+    transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+  }
+  .const-card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--c-accent, var(--teal));
+    box-shadow: 0 0 14px var(--c-accent, var(--teal));
+    opacity: 0.85; transition: width 0.25s;
+  }
+  .const-card:hover {
+    border-color: rgba(140, 160, 200, 0.32);
+    box-shadow: 0 12px 44px rgba(0, 0, 0, 0.5);
+    transform: translateY(-3px);
+  }
+  .const-card:hover::before { width: 5px; }
+  .const-card-head { display: flex; align-items: flex-start; gap: 0.6rem; }
+  .const-card-dot {
+    flex-shrink: 0; width: 11px; height: 11px; border-radius: 50%;
+    margin-top: 0.35rem;
+    background: var(--c-accent, var(--teal));
+    box-shadow: 0 0 10px var(--c-accent, var(--teal));
+  }
+  .const-card-titles { flex: 1; min-width: 0; }
+  .const-card-name {
+    font-family: var(--font-display); font-size: 1.15rem; font-weight: 700;
+    line-height: 1.1; color: var(--c-accent, var(--ink));
+  }
+  .const-card-sub {
+    font-family: var(--font-display); font-size: 0.74rem; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--ink-faint); margin-top: 0.2rem;
+  }
+  .const-card-count {
+    flex-shrink: 0; font-family: var(--font-display); font-size: 0.72rem;
+    color: var(--ink-faint); border: 1px solid var(--line-strong);
+    border-radius: 99px; padding: 0.1em 0.6em; align-self: flex-start;
+  }
+  .const-card-blurb {
+    margin-top: 0.8rem; color: var(--ink-dim); font-size: 0.92rem; line-height: 1.5;
+  }
+
+  /* ---- Email capture ---- */
+  .subscribe { position: relative; overflow: hidden; }
+  .subscribe .container { position: relative; z-index: 1; }
+  .subscribe-card {
+    display: grid;
+    gap: 1.6rem;
+    align-items: center;
+    grid-template-columns: 1.2fr 1fr;
+    background: linear-gradient(160deg, var(--bg-2), var(--bg-1));
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    padding: clamp(1.6rem, 4vw, 2.6rem);
+    box-shadow: 0 10px 44px rgba(0, 0, 0, 0.45);
+  }
+  .subscribe-title {
+    font-family: var(--font-display); font-size: clamp(1.3rem, 3vw, 1.85rem);
+    color: var(--ink); line-height: 1.15;
+  }
+  .subscribe-sub { margin-top: 0.7rem; color: var(--ink-dim); font-size: 0.95rem; max-width: 46ch; }
+  .subscribe-form { display: flex; gap: 0.7rem; flex-wrap: wrap; }
+  .subscribe-form input {
+    flex: 1 1 200px; min-width: 0;
+    background: var(--bg-0);
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    padding: 0.7rem 0.9rem;
+    color: var(--ink);
+    font: inherit;
+    transition: border-color 0.25s, box-shadow 0.25s;
+  }
+  .subscribe-form input::placeholder { color: var(--ink-faint); }
+  .subscribe-form input:focus {
+    outline: none; border-color: rgba(34, 211, 238, 0.55); box-shadow: var(--glow-cyan);
+  }
+  .subscribe-form .btn { flex: 0 0 auto; }
+  @media (max-width: 720px) {
+    .subscribe-card { grid-template-columns: 1fr; gap: 1.3rem; }
+  }
+  .visually-hidden {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  /* ---- Interactive rail ---- */
+  .interactive-lead { margin-top: -1.4rem; margin-bottom: 1.6rem; max-width: 52ch; }
+  .interactive-rail {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.1rem;
+  }
+  @media (max-width: 640px) {
+    /* horizontal swipe rail on phones */
+    .interactive-rail {
+      display: flex; gap: 1rem; overflow-x: auto; overflow-y: hidden;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+      padding-bottom: 0.5rem; margin-inline: -1px;
+      scroll-snap-type: x mandatory;
+    }
+    .interactive-rail::-webkit-scrollbar { display: none; }
+    .rail-item { flex: 0 0 84%; scroll-snap-align: start; }
+  }
+</style>

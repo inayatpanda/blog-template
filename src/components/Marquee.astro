@@ -1,0 +1,26 @@
+---
+// A scrolling strip of short phrases about you, shown on the About page.
+// Edit these to your own — a few words each works best.
+const items = [
+  'Writer',
+  'Builder',
+  'Reader',
+  'Always learning',
+  'Work in progress',
+  'Curious by default',
+];
+---
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track">
+    {[0, 1].map(() => (
+      <div class="marquee-item">
+        {items.map((item) => (
+          <>
+            <span>{item}</span>
+            <span class="dot-sep">◆</span>
+          </>
+        ))}
+      </div>
+    ))}
+  </div>
+</div>

@@ -1,0 +1,122 @@
+---
+import Base from '../layouts/Base.astro';
+import profile from '../data/profile.json';
+import { site } from '../lib/site';
+
+const icons: Record<string, string> = {
+  linkedin: '<svg viewBox="0 0 24 24"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45z"/></svg>',
+  instagram: '<svg viewBox="0 0 24 24"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23a3.7 3.7 0 0 1-.9 1.38c-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41a3.7 3.7 0 0 1-1.38-.9 3.7 3.7 0 0 1-.9-1.38c-.16-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07M12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63a5.88 5.88 0 0 0-2.13 1.38A5.88 5.88 0 0 0 .63 4.14C.33 4.9.13 5.78.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.8.72 1.48 1.38 2.13a5.88 5.88 0 0 0 2.13 1.38c.76.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56a5.88 5.88 0 0 0 2.13-1.38 5.88 5.88 0 0 0 1.38-2.13c.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91a5.88 5.88 0 0 0-1.38-2.13A5.88 5.88 0 0 0 19.86.63c-.76-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0zm0 5.84A6.16 6.16 0 1 0 18.16 12 6.16 6.16 0 0 0 12 5.84zm0 10.15A4 4 0 1 1 16 12a4 4 0 0 1-4 3.99zm7.85-10.4a1.44 1.44 0 1 1-1.44-1.44 1.44 1.44 0 0 1 1.44 1.44z"/></svg>',
+  facebook: '<svg viewBox="0 0 24 24"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.09 10.13 24v-8.44H7.08v-3.49h3.04V9.41c0-3.02 1.79-4.7 4.53-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.5c-1.5 0-1.96.93-1.96 1.89v2.26h3.32l-.53 3.49h-2.8V24C19.62 23.09 24 18.1 24 12.07z"/></svg>',
+};
+---
+<Base title="Contact" description={`Contact ${site.name} — clinical enquiries, research collaboration, app feedback, speaking and teaching.`}>
+
+  <section class="section contact-section">
+    <div class="orbs">
+      <div class="orb orb-a" style="opacity:0.4"></div>
+      <div class="orb orb-b" style="opacity:0.35"></div>
+    </div>
+    <div class="grid-lines" aria-hidden="true"></div>
+    <div class="container contact-grid">
+
+      <div style="position:relative; z-index:1">
+        <p class="eyebrow" data-reveal>Contact</p>
+        <h1 class="display scrim-text" data-reveal data-delay="0.07" style="font-size:clamp(1.9rem,5vw,3rem); margin-top:0.5rem">Get in touch</h1>
+        <p class="lead" data-reveal data-delay="0.14" style="margin-top:0.55rem">
+          Say hello — I usually reply.
+        </p>
+        <a class="contact-email" data-reveal data-delay="0.2" href={`mailto:${profile.email}`}>{profile.email}</a>
+        <div class="socials" data-reveal data-delay="0.26" style="margin-top:2rem">
+          {site.socials.linkedin && <a href={site.socials.linkedin} aria-label="LinkedIn" target="_blank" rel="noopener" set:html={icons['linkedin']} />}
+          {site.socials.instagram && <a href={site.socials.instagram} aria-label="Instagram" target="_blank" rel="noopener" set:html={icons['instagram']} />}
+        </div>
+      </div>
+
+      <form class="card ring contact-form" data-reveal="right" data-delay="0.15" method="POST" action={site.contact.endpoint}>
+        <div class="field">
+          <label for="name">Name</label>
+          <input id="name" name="name" type="text" required autocomplete="name" />
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" required autocomplete="email" />
+        </div>
+        <div class="field">
+          <label for="message">Message</label>
+          <textarea id="message" name="message" rows="5" required></textarea>
+        </div>
+        <button class="btn btn-primary" type="submit" style="justify-self:start">Send message</button>
+        <p class="form-note">General enquiries only — please do not include patient-identifiable information.</p>
+      </form>
+      <p class="contact-status" id="contactStatus" role="status" aria-live="polite" hidden></p>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .contact-section { min-height: 72vh; overflow: hidden; }
+  .contact-grid {
+    position: relative; z-index: 1;
+    display: grid; gap: 3rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    align-items: start;
+  }
+  .contact-email {
+    display: inline-block; margin-top: 1.6rem;
+    font-family: var(--font-display); font-size: 1.1rem; color: var(--cyan);
+    border-bottom: 1px solid rgba(34, 211, 238, 0.4);
+    transition: text-shadow 0.25s;
+  }
+  .contact-email:hover { text-shadow: 0 0 14px rgba(34, 211, 238, 0.6); }
+  .contact-form { display: grid; gap: 1.1rem; }
+  .form-note { font-size: 0.78rem; color: var(--ink-faint); }
+  .contact-status {
+    margin-top: 1.2rem; padding: 0.9em 1.1em; border-radius: 12px;
+    font-family: var(--font-display); font-size: 0.95rem; line-height: 1.5;
+  }
+  .contact-status.ok {
+    color: var(--ink); border: 1px solid rgba(45, 212, 191, 0.4);
+    background: rgba(45, 212, 191, 0.1);
+  }
+  .contact-status.err {
+    color: var(--ink); border: 1px solid rgba(244, 114, 182, 0.45);
+    background: rgba(244, 114, 182, 0.1);
+  }
+</style>
+
+<script>
+  // AJAX submit → stay on the site (no Formspree redirect page); show an inline result.
+  function initContactForm() {
+    const form = document.querySelector<HTMLFormElement>('.contact-form');
+    const status = document.getElementById('contactStatus');
+    if (!form || !status || form.dataset.bound) return;
+    form.dataset.bound = '1';
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+      const label = btn?.textContent;
+      if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+      status.hidden = true; status.className = 'contact-status';
+      try {
+        const res = await fetch(form.action, {
+          method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' },
+        });
+        if (res.ok) {
+          form.style.display = 'none';
+          status.textContent = 'Thank you — your message is on its way. I usually reply.';
+          status.classList.add('ok'); status.hidden = false;
+        } else {
+          const data = await res.json().catch(() => ({} as any));
+          const msg = data?.errors?.map((x: any) => x.message).join(', ') || 'Something went wrong — please email me directly.';
+          status.textContent = msg; status.classList.add('err'); status.hidden = false;
+          if (btn) { btn.disabled = false; btn.textContent = label || 'Send message'; }
+        }
+      } catch {
+        status.textContent = 'Network error — please email me directly.';
+        status.classList.add('err'); status.hidden = false;
+        if (btn) { btn.disabled = false; btn.textContent = label || 'Send message'; }
+      }
+    });
+  }
+  document.addEventListener('astro:page-load', initContactForm);
+</script>

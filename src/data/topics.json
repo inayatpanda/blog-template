@@ -1,0 +1,25 @@
+[
+  { "name": "Marrow", "subtitle": "Life", "tag": "marrow", "color": "#2dd4bf",
+    "blurb": "Habits, attention, and getting out of your own way.",
+    "sub": [] },
+  { "name": "The Workshop", "subtitle": "Technology", "tag": "forge", "color": "#22d3ee",
+    "blurb": "Building things, breaking things, and why the tools we're handed rarely fit.",
+    "sub": [
+      { "name": "Interactive", "tag": "interactive" }
+    ] },
+  { "name": "The Pantry", "subtitle": "Food", "tag": "old-bones", "color": "#fbbf24",
+    "blurb": "Cooking, and the chemistry hiding in plain sight.",
+    "sub": [] },
+  { "name": "Stacks", "subtitle": "Books", "tag": "marginalia", "color": "#a78bfa",
+    "blurb": "Reading notes from the pile by the bed.",
+    "sub": [] },
+  { "name": "After Hours", "subtitle": "Arts & culture", "tag": "after-hours", "color": "#f472b6",
+    "blurb": "Music, colour, and the things made purely for the joy of it.",
+    "sub": [] },
+  { "name": "Field Notes", "subtitle": "Travel", "tag": "atlas", "color": "#fb923c",
+    "blurb": "Notes from elsewhere, usually at walking pace.",
+    "sub": [] },
+  { "name": "Nebula", "subtitle": "Ideas", "tag": "nebula", "color": "#c4b5fd",
+    "blurb": "Half-formed thoughts that don't fit anywhere else yet.",
+    "sub": [] }
+]

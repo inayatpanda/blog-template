@@ -1,0 +1,62 @@
+---
+// Link-based topic rail for article pages. Same look as the old homepage filter,
+// but each item navigates to that constellation page (/c/<tag>/).
+import topics from '../data/topics.json';
+import { getCollection } from 'astro:content';
+
+interface Props {
+  activeTags?: string[];
+}
+const { activeTags = [] } = Astro.props;
+
+const posts = await getCollection('blog', ({ data }) => !data.draft);
+const tagCount = (tag: string) => posts.filter((p) => p.data.tags.includes(tag)).length;
+const visibleTopics = topics
+  .map((t) => ({
+    ...t,
+    count: tagCount(t.tag),
+    sub: (t.sub || []).map((s) => ({ ...s, count: tagCount(s.tag) })).filter((s) => s.count > 0),
+  }))
+  .filter((t) => t.count > 0 || t.sub.length > 0);
+---
+<aside class="topic-rail">
+  <details class="topic-acc">
+    <summary class="rail-title">Topics <span class="acc-caret" aria-hidden="true">▾</span></summary>
+    <ul class="topic-list">
+      <li>
+        <a class="topic-btn" href="/writing/">
+          All posts <span class="count">{posts.length}</span>
+        </a>
+      </li>
+      {visibleTopics.map((t) => (
+        <li>
+          <a class:list={['topic-btn', { active: activeTags.includes(t.tag) }]} href={`/c/${t.tag}/`}>
+            <span class="topic-name">{t.name}</span>
+            {t.subtitle && <span class="topic-subtitle">{t.subtitle}</span>}
+            <span class="count">{t.count}</span>
+          </a>
+          {t.sub.length > 0 && (
+            <ul class="topic-sub">
+              {t.sub.map((s) => (
+                <li>
+                  <a class:list={['topic-btn', { active: activeTags.includes(s.tag) }]} href={`/c/${s.tag}/`}>
+                    {s.name} <span class="count">{s.count}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </li>
+      ))}
+    </ul>
+  </details>
+</aside>
+
+<style>
+  .topic-subtitle {
+    color: var(--muted, #5b6b80);
+    font-size: .78em;
+    margin-left: .45em;
+    letter-spacing: .04em;
+  }
+</style>

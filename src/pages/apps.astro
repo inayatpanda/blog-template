@@ -1,0 +1,93 @@
+---
+import Base from '../layouts/Base.astro';
+import apps from '../data/apps.json';
+import { site } from '../lib/site';
+---
+<Base title="Apps" description={`Clinical software built by ${site.name}: portfolio tracking, surgical logbooks, PROMs collection, AI dictation and more.`}>
+
+  <section class="section apps-hero">
+    <div class="orbs">
+      <div class="orb orb-a"></div>
+      <div class="orb orb-b"></div>
+      <div class="orb orb-c"></div>
+    </div>
+    <div class="grid-lines" aria-hidden="true"></div>
+    <div class="container" style="position:relative; z-index:1">
+      <p class="eyebrow" data-reveal>Software</p>
+      <h1 class="display scrim-text" data-reveal data-delay="0.07" style="font-size:clamp(1.9rem,5vw,3rem); margin-top:0.5rem">Apps</h1>
+      <p class="lead" data-reveal data-delay="0.14" style="margin-top:0.55rem">
+        Tools I built to fix my own clinical headaches.
+      </p>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:0">
+    <div class="container">
+      <div class="apps-grid">
+        {apps.map((app, i) => (
+          <div
+            class="card app-card"
+            data-tilt
+            data-reveal
+            data-delay={String(Math.min(i * 0.07, 0.35))}
+            style={`--app-accent:${app.accent}`}
+          >
+            <div class="app-top">
+              <span class="app-tag">{app.tag}</span>
+              <span class={`app-status ${app.status}`}>
+                {app.status === 'live' ? 'Live' : 'Coming soon'}
+              </span>
+            </div>
+            <h2>{app.name}</h2>
+            <p>{app.description}</p>
+            {app.status === 'live' ? (
+              <a class="btn btn-ghost app-cta" href={app.url} target="_blank" rel="noopener">{app.cta}</a>
+            ) : (
+              <span class="btn btn-ghost app-cta" aria-disabled="true">Coming soon</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .apps-hero { overflow: hidden; padding-bottom: 3rem; }
+
+  .apps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+    gap: 1.4rem;
+  }
+  .app-card {
+    display: flex; flex-direction: column; gap: 0.8rem;
+    padding: 1.8rem;
+    overflow: hidden;
+  }
+  .app-card::after {
+    content: ""; position: absolute; inset: auto 0 0 0; height: 3px;
+    background: var(--app-accent);
+    box-shadow: 0 0 16px var(--app-accent);
+    opacity: 0.8;
+  }
+  .app-card h2 { font-size: 1.35rem; }
+  .app-card p { color: var(--ink-dim); font-size: 0.95rem; flex: 1; }
+  .app-top { display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+  .app-tag {
+    font-family: var(--font-display); font-size: 0.72rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--app-accent);
+  }
+  .app-status {
+    display: inline-flex; align-items: center; gap: 0.45em;
+    font-family: var(--font-display); font-size: 0.72rem; letter-spacing: 0.06em;
+    color: var(--ink-dim);
+    border: 1px solid var(--line-strong); border-radius: 99px; padding: 0.2em 0.75em;
+  }
+  .app-status::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%;
+  }
+  .app-status.live::before { background: var(--teal); box-shadow: 0 0 8px var(--teal); }
+  .app-status.development::before { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+  .app-cta { align-self: flex-start; margin-top: 0.4rem; }
+</style>

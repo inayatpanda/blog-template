@@ -1,0 +1,25 @@
+# Cache policy for the static site on Hostinger (Apache/LiteSpeed).
+# HTML must always revalidate so visitors get the current build immediately after a deploy
+# (prevents the "stale page / old footer / missing themes" problem). Astro fingerprints its
+# JS/CSS/font/image filenames, so those are safe to cache for a long time (immutable).
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate, max-age=0"
+  </FilesMatch>
+  <FilesMatch "\.(js|mjs|css|woff2?|png|jpe?g|webp|avif|svg|gif|ico)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>
+
+# Fallback for servers without mod_headers (sets the same expiry intent).
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+</IfModule>

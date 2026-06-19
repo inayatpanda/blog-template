@@ -1,0 +1,13 @@
+import rehypeGallery from '../src/lib/rehype-gallery.mjs';
+const img = (src) => ({ type: 'element', tagName: 'p', children: [{ type: 'element', tagName: 'img', properties: { src } }] });
+const para = (t) => ({ type: 'element', tagName: 'p', children: [{ type: 'text', value: t }] });
+const tree = { type: 'root', children: [ para('intro'), img('a.jpg'), img('b.jpg'), img('c.jpg'), para('mid'), img('lone.jpg'), para('end') ] };
+rehypeGallery()(tree);
+const galleries = tree.children.filter((n) => n.tagName === 'div' && n.properties?.className?.includes('gallery'));
+if (galleries.length !== 1) throw new Error(`expected 1 gallery, got ${galleries.length}`);
+if (galleries[0].children.length !== 3) throw new Error(`expected 3 imgs in gallery, got ${galleries[0].children.length}`);
+const loneImgP = tree.children.find((n) => n.tagName === 'p' && n.children?.[0]?.tagName === 'img');
+if (!loneImgP) throw new Error('lone image should stay a paragraph, not be wrapped');
+const lazyOk = galleries[0].children.every((im) => im.properties.loading === 'lazy');
+if (!lazyOk) throw new Error('gallery images must be lazy-loaded');
+console.log('OK: rehype-gallery groups runs, leaves singles, lazies images');

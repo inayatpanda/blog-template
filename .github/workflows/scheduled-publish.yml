@@ -1,0 +1,51 @@
+name: Publish scheduled posts
+
+# Runs in GitHub — your laptop does NOT need to be on. It scans the blog for posts
+# that were committed as `draft: true` + `publishAt: <date>` and, once that date is
+# due, flips them to `draft: false` (and removes publishAt) and pushes to main, which
+# triggers the existing Build & Deploy workflow. A run with nothing due is a no-op.
+on:
+  schedule:
+    # Hourly, on the hour (UTC). A post goes live within the hour after its publishAt.
+    - cron: '0 * * * *'
+  workflow_dispatch: {}
+
+# Allow this workflow to commit back to the repo using the built-in token (no PAT,
+# no secrets). contents:write is the minimum needed to push the flip commit.
+permissions:
+  contents: write
+
+# Never run two flips at once (e.g. cron + a manual dispatch overlapping).
+concurrency:
+  group: scheduled-publish
+  cancel-in-progress: false
+
+jobs:
+  flip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      # Flip any due scheduled posts in place. Node built-ins only — no npm install.
+      - name: Flip due scheduled posts
+        run: node scripts/flip-scheduled.mjs
+
+      # Commit + push ONLY if the flip changed something. `git diff --quiet` exits non-zero
+      # when there are changes, so we guard the commit on it. No changes → no commit, no
+      # empty commit, no push. Uses the workflow's GITHUB_TOKEN (set up by checkout); no
+      # force-push, no secret echoed.
+      - name: Commit and push if anything went live
+        run: |
+          if git diff --quiet -- src/content/blog; then
+            echo "No scheduled posts were due. Nothing to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/content/blog
+          git commit -m "chore(blog): publish scheduled post(s) [skip-schedule]"
+          git push

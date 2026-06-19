@@ -1,0 +1,151 @@
+---
+import Base from '../../layouts/Base.astro';
+import PostCard from '../../components/PostCard.astro';
+import topics from '../../data/topics.json';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const posts = (await getCollection('blog', ({ data }) => !data.draft))
+    .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+  const tagCount = (tag: string) => posts.filter((p) => p.data.tags.includes(tag)).length;
+
+  const paths: any[] = [];
+
+  for (const t of topics) {
+    // broad topic page — only if it (or any of its subs) has posts
+    if (tagCount(t.tag) > 0) {
+      // sub-topic chips for this broad topic that themselves have posts
+      const subChips = (t.sub || [])
+        .map((s) => ({ name: s.name, tag: s.tag, count: tagCount(s.tag) }))
+        .filter((s) => s.count > 0);
+      paths.push({
+        params: { topic: t.tag },
+        props: {
+          tag: t.tag,
+          name: t.name,
+          subtitle: t.subtitle ?? null,
+          color: t.color,
+          blurb: t.blurb ?? null,
+          isBroad: true,
+          subChips,
+        },
+      });
+    }
+    // sub-topic pages — name from the sub, colour inherited from the parent broad topic
+    for (const s of t.sub || []) {
+      if (tagCount(s.tag) > 0) {
+        paths.push({
+          params: { topic: s.tag },
+          props: {
+            tag: s.tag,
+            name: s.name,
+            subtitle: t.name, // parent constellation name as the subtitle
+            color: t.color,
+            blurb: null,
+            isBroad: false,
+            subChips: [],
+          },
+        });
+      }
+    }
+  }
+
+  return paths;
+}
+
+const { tag, name, subtitle, color, blurb, isBroad, subChips } = Astro.props;
+
+const posts = (await getCollection('blog', ({ data }) => !data.draft))
+  .filter((p) => p.data.tags.includes(tag))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+const count = posts.length;
+const countLabel = `${count} ${count === 1 ? 'post' : 'posts'}`;
+const desc = blurb || `${count === 1 ? 'One post' : `${count} posts`} in ${name}.`;
+---
+<Base title={name} description={desc} progress>
+  <section class="section const-page">
+    <div class="orbs"><div class="orb orb-b" style="opacity:0.3"></div></div>
+    <div class="container">
+
+      <a class="back-link" href="/writing/" data-reveal>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M19 12H5m6 6-6-6 6-6"/></svg>
+        All writing
+      </a>
+
+      <header class="const-head" data-reveal data-delay="0.06">
+        <span class="const-dot-lg" style={`background:${color}; box-shadow:0 0 18px ${color}66`} aria-hidden="true"></span>
+        <h1 class="display const-title" style={`color:${color}`}>{name}</h1>
+        {subtitle && <p class="const-subtitle">{subtitle}</p>}
+        {blurb && <p class="lead const-blurb">{blurb}</p>}
+        <p class="const-count-line">{countLabel}</p>
+      </header>
+
+      {isBroad && subChips.length > 0 && (
+        <nav class="sub-chip-row" aria-label={`Sub-topics in ${name}`} data-reveal data-delay="0.1">
+          {subChips.map((s) => (
+            <a class="chip" href={`/c/${s.tag}/`}>
+              {s.name} <span class="count">{s.count}</span>
+            </a>
+          ))}
+        </nav>
+      )}
+
+      <div class="post-list const-post-list">
+        {posts.map((p, i) => (
+          <PostCard post={p} reveal delay={Math.min(i * 0.06, 0.3)} />
+        ))}
+      </div>
+
+    </div>
+  </section>
+</Base>
+
+<style>
+  .const-page { position: relative; }
+  .const-page .container { position: relative; z-index: 1; }
+
+  .back-link {
+    display: inline-flex; align-items: center; gap: 0.45em;
+    font-family: var(--font-display); font-size: 0.88rem; color: var(--ink-faint);
+    transition: color 0.2s;
+  }
+  .back-link:hover { color: var(--cyan); }
+
+  .const-head { margin: 1.6rem 0 2.4rem; max-width: 60ch; }
+  .const-dot-lg {
+    display: block; width: 14px; height: 14px; border-radius: 50%;
+    margin-bottom: 0.9rem;
+  }
+  .const-title {
+    font-size: clamp(2.4rem, 7vw, 4.2rem);
+    line-height: 1.02;
+  }
+  .const-subtitle {
+    font-family: var(--font-display); font-size: 0.82rem;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-faint); margin-top: 0.8rem;
+  }
+  .const-blurb { margin-top: 1rem; }
+  .const-count-line {
+    font-family: var(--font-display); font-size: 0.8rem; letter-spacing: 0.06em;
+    color: var(--ink-faint); margin-top: 1rem;
+  }
+
+  /* horizontal sub-topic chip row (mirrors the archive chip-row pattern) */
+  .sub-chip-row {
+    display: flex; gap: 0.5rem; flex-wrap: wrap;
+    margin-bottom: 2.4rem;
+  }
+  @media (max-width: 640px) {
+    .sub-chip-row {
+      flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+      padding-bottom: 0.4rem; margin-inline: -1px;
+    }
+    .sub-chip-row::-webkit-scrollbar { display: none; }
+    .sub-chip-row .chip { flex: 0 0 auto; }
+  }
+
+  .const-post-list { display: grid; gap: 1.1rem; }
+</style>

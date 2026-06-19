@@ -1,0 +1,263 @@
+---
+import Base from '../layouts/Base.astro';
+import GlenoidArt from '../components/GlenoidArt.astro';
+import Marquee from '../components/Marquee.astro';
+import profile from '../data/profile.json';
+import experience from '../data/experience.json';
+import qualifications from '../data/qualifications.json';
+import publications from '../data/publications.json';
+import conferences from '../data/conferences.json';
+import awards from '../data/awards.json';
+import audits from '../data/audits.json';
+import teaching from '../data/teaching.json';
+import { site } from '../lib/site';
+---
+<Base title="About" description={`${site.name} — ${profile.tagline}`}>
+
+  <!-- ========== header ========== -->
+  <section class="section about-hero">
+    <div class="orbs">
+      <div class="orb orb-a"></div>
+      <div class="orb orb-b"></div>
+    </div>
+    <div class="grid-lines" aria-hidden="true"></div>
+    <div class="container about-hero-grid">
+      <div style="position:relative; z-index:1">
+        <p class="eyebrow" data-reveal>About</p>
+        <h1 class="display scrim-text" data-reveal data-delay="0.07" style="font-size:clamp(2.4rem,7vw,4rem); margin-top:0.8rem">{profile.name}</h1>
+        <p class="creds" data-reveal data-delay="0.12">{profile.credentials}</p>
+        <p class="lead" data-reveal data-delay="0.18" style="margin-top:1.1rem">
+          {profile.role} · {profile.trust}
+        </p>
+      </div>
+      <div class="about-art" data-reveal="right" data-delay="0.15" aria-hidden="true">
+        <GlenoidArt />
+      </div>
+    </div>
+  </section>
+
+  <Marquee />
+
+  <!-- ========== stats ========== -->
+  <section class="section" style="padding-block:3.5rem 3.5rem">
+    <div class="container">
+      <div class="stats-row">
+        {profile.stats.map((s, i) => (
+          <div class="stat-card" data-reveal data-delay={String(i * 0.07)}>
+            <div class="stat-value" data-count={String(s.value)} data-suffix={s.suffix}>0</div>
+            <div class="stat-label">{s.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== bio ========== -->
+  <section class="section" style="padding-top:0">
+    <div class="container">
+      <div class="section-head" data-reveal>
+        <h2 class="section-title">Background</h2><span class="rule"></span>
+      </div>
+      <div class="bio-grid">
+        {profile.bio.slice(0, 1).map((para, i) => (
+          <p data-reveal data-delay={String(Math.min(i * 0.06, 0.25))}>{para}</p>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== clinical experience ========== -->
+  <section class="section" style="padding-top:0">
+    <div class="container">
+      <div class="section-head" data-reveal>
+        <h2 class="section-title">Clinical experience</h2><span class="rule"></span>
+      </div>
+      <div class="timeline">
+        {experience.map((e) => (
+          <div class="timeline-item" data-reveal>
+            <span class="tl-period">{e.period}</span>
+            <h3>{e.role}</h3>
+            <p class="tl-place">{e.place}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== qualifications ========== -->
+  <section class="section" style="padding-top:0">
+    <div class="container">
+      <div class="section-head" data-reveal>
+        <h2 class="section-title">Qualifications</h2><span class="rule"></span>
+      </div>
+      <div class="qual-grid">
+        {qualifications.map((q, i) => (
+          <div class="card qual-card" data-tilt data-reveal data-delay={String(Math.min(i * 0.05, 0.3))}>
+            <span class="qual-year">{q.year}</span>
+            <h3>{q.title}</h3>
+            <p>{q.body}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== publications ========== -->
+  <section class="section" style="padding-top:0">
+    <div class="container">
+      <div class="section-head" data-reveal>
+        <h2 class="section-title">Publications</h2><span class="rule"></span>
+        <span class="head-count">{publications.length} peer-reviewed</span>
+      </div>
+      <ol class="cv-list pub-list">
+        {[...publications].sort((a, b) => b.year - a.year).map((p, i) => (
+          <li class="cv-item" data-reveal data-delay={String(Math.min(i * 0.03, 0.2))}>
+            <span class="cv-year">{p.year}</span>
+            <div>
+              <p class="cv-title">{p.link
+                ? <a href={p.link} target="_blank" rel="noopener">{p.title}</a>
+                : p.title}</p>
+              <p class="cv-body">
+                <em>{p.journal}</em>
+                {p.link && <> · <a href={p.link} target="_blank" rel="noopener">doi</a></>}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+
+  <!-- ========== presentations ========== -->
+  <section class="section" style="padding-top:0">
+    <div class="container">
+      <div class="section-head" data-reveal>
+        <h2 class="section-title">Conference presentations</h2><span class="rule"></span>
+      </div>
+      <ul class="cv-list">
+        {conferences.map((c, i) => (
+          <li class="cv-item" data-reveal data-delay={String(Math.min(i * 0.03, 0.2))}>
+            <span class="cv-year">{c.year}</span>
+            <div>
+              <p class="cv-title">{c.title}</p>
+              <p class="cv-body">{c.type} · {c.event}{c.location && ` · ${c.location}`}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <!-- ========== awards ========== -->
+  <section class="section" style="padding-top:0">
+    <div class="container">
+      <div class="section-head" data-reveal>
+        <h2 class="section-title">Awards</h2><span class="rule"></span>
+      </div>
+      <ul class="cv-list">
+        {awards.map((a) => (
+          <li class="cv-item award-item" data-reveal>
+            <span class="cv-year">{a.year}</span>
+            <div>
+              <p class="cv-title">{a.title}</p>
+              <p class="cv-body">{a.body}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <!-- ========== audits + teaching (two-column) ========== -->
+  <section class="section" style="padding-top:0">
+    <div class="container two-col">
+      <div>
+        <div class="section-head" data-reveal>
+          <h2 class="section-title" style="font-size:1.5rem">Audit &amp; quality improvement</h2>
+        </div>
+        <ul class="cv-list">
+          {audits.map((a) => (
+            <li class="cv-item" data-reveal>
+              <span class="cv-year">{a.year}</span>
+              <div>
+                <p class="cv-title">{a.title}</p>
+                {a.body && <p class="cv-body">{a.body}</p>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div>
+        <div class="section-head" data-reveal>
+          <h2 class="section-title" style="font-size:1.5rem">Teaching</h2>
+        </div>
+        <ul class="cv-list">
+          {teaching.map((t) => (
+            <li class="cv-item" data-reveal>
+              <span class="cv-year">{t.year}</span>
+              <div>
+                <p class="cv-title">{t.title}</p>
+                {t.body && <p class="cv-body">{t.body}</p>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== memberships ========== -->
+  <section class="section" style="padding-top:0">
+    <div class="container">
+      <div class="section-head" data-reveal>
+        <h2 class="section-title">Memberships</h2><span class="rule"></span>
+      </div>
+      <ul class="membership-row">
+        {profile.memberships.map((m) => (
+          <li class="tag-chip membership-chip" data-reveal>{m}</li>
+        ))}
+      </ul>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .about-hero { overflow: hidden; padding-bottom: 3rem; }
+  .about-hero-grid {
+    position: relative; z-index: 1;
+    display: grid; grid-template-columns: 1.2fr 1fr; gap: 2.5rem; align-items: center;
+  }
+  @media (max-width: 880px) {
+    .about-hero-grid { grid-template-columns: 1fr; }
+    .about-art { max-width: 420px; margin-inline: auto; }
+  }
+  .creds {
+    margin-top: 0.9rem;
+    font-family: var(--font-display); font-size: 0.92rem; letter-spacing: 0.06em;
+    color: var(--cyan);
+  }
+
+  .bio-grid { display: grid; gap: 1.1rem; max-width: 76ch; color: var(--ink-dim); font-size: 1.03rem; }
+
+  .qual-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.1rem; }
+  .qual-card h3 { font-size: 1.08rem; margin-top: 0.4rem; }
+  .qual-card p { color: var(--ink-dim); font-size: 0.86rem; margin-top: 0.3rem; }
+  .qual-year {
+    font-family: var(--font-display); font-size: 0.78rem; letter-spacing: 0.14em;
+    color: var(--cyan);
+  }
+
+  .head-count { font-family: var(--font-display); font-size: 0.85rem; color: var(--ink-faint); }
+
+  .pub-list { counter-reset: pub; }
+
+  .award-item { border-color: rgba(251, 191, 36, 0.3); }
+  .award-item:hover { border-color: rgba(251, 191, 36, 0.5); box-shadow: 0 0 22px rgba(251, 191, 36, 0.12); }
+  .award-item .cv-year { color: var(--amber); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: start; }
+  @media (max-width: 880px) { .two-col { grid-template-columns: 1fr; } }
+
+  .membership-row { list-style: none; display: flex; flex-wrap: wrap; gap: 0.7rem; }
+  .membership-chip { font-size: 0.82rem; padding: 0.5em 1.1em; text-transform: none; letter-spacing: 0.02em; }
+</style>

@@ -1,0 +1,91 @@
+---
+import Base from '../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+import { site } from '../lib/site';
+
+// Glob all images under _images/<slug>/*.{jpg,jpeg,png,webp}
+// eager: true → default export is the resolved URL string
+const rawImgs = import.meta.glob('../content/blog/_images/**/*.{jpg,jpeg,png,webp}', { eager: true });
+
+// Build a map: slug → [url, url, ...]
+const bySlug: Record<string, string[]> = {};
+for (const [path, mod] of Object.entries(rawImgs)) {
+  // path shape: ../content/blog/_images/<slug>/filename.ext
+  const parts = path.split('/');
+  const imagesIdx = parts.indexOf('_images');
+  if (imagesIdx === -1) continue;
+  const slug = parts[imagesIdx + 1];
+  if (!slug) continue;
+  const url = (mod as { default: string }).default;
+  if (!bySlug[slug]) bySlug[slug] = [];
+  bySlug[slug].push(url);
+}
+
+// Get published posts
+const posts = await getCollection('blog', ({ data }) => !data.draft);
+
+// Keep only slugs that match a published post; sort by post date descending
+interface PostGroup {
+  slug: string;
+  title: string;
+  date: Date;
+  images: string[];
+}
+
+const groups: PostGroup[] = posts
+  .filter((p) => bySlug[p.slug] && bySlug[p.slug].length > 0)
+  .map((p) => ({
+    slug: p.slug,
+    title: p.data.title,
+    date: p.data.date,
+    images: bySlug[p.slug],
+  }))
+  .sort((a, b) => b.date.valueOf() - a.date.valueOf());
+---
+<Base title="Darkroom" description={`A wall of photographs from across the posts on ${site.masthead}.`}>
+
+  <section class="section darkroom-hero">
+    <div class="orbs">
+      <div class="orb orb-a"></div>
+      <div class="orb orb-b"></div>
+    </div>
+    <div class="grid-lines" aria-hidden="true"></div>
+    <div class="container" style="position:relative; z-index:1">
+      <p class="eyebrow" data-reveal>Photography</p>
+      <h1 class="display scrim-text" data-reveal data-delay="0.07"
+          style="font-size:clamp(1.9rem,5vw,3rem); margin-top:0.5rem">Darkroom</h1>
+      <p class="lead" data-reveal data-delay="0.14" style="margin-top:0.55rem">
+        Every photograph from across the posts, collected in one place.
+      </p>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:0">
+    <div class="container">
+      {groups.length === 0 ? (
+        <p style="color: var(--ink-faint); font-family: var(--font-display); font-size:1rem;">
+          Nothing developed yet.
+        </p>
+      ) : (
+        groups.map((group) => (
+          <div class="darkroom-group" data-reveal style="margin-bottom: 3rem;">
+            <h2 style="font-size:1.2rem; margin-bottom:1rem; color:var(--ink-dim);">
+              <a href={`/blog/${group.slug}/`}
+                 style="color:var(--ink); border-bottom:1px solid var(--line-strong); transition:border-color 0.2s;"
+                 onmouseover="this.style.borderColor='var(--cyan)'"
+                 onmouseout="this.style.borderColor='var(--line-strong)'">
+                {group.title}
+              </a>
+            </h2>
+            <div class="gallery">
+              {group.images.map((url) => (
+                <img loading="lazy" src={url} alt="" />
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  </section>
+
+</Base>

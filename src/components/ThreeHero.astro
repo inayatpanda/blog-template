@@ -1,0 +1,200 @@
+---
+// Three.js hero scene: particle field + wireframe torus knot + icosahedron.
+// Lazy-initialised, pauses off-screen, disposed on page swap,
+// static glow fallback when reduced-motion is requested or WebGL fails.
+---
+<div class="three-hero" id="three-hero" aria-hidden="true">
+  <canvas id="three-canvas"></canvas>
+</div>
+
+<style>
+  .three-hero {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    /* static fallback glow — visible until/unless WebGL takes over */
+    background:
+      radial-gradient(ellipse 55% 45% at 68% 38%, rgba(34, 211, 238, 0.12), transparent 65%),
+      radial-gradient(ellipse 40% 38% at 30% 65%, rgba(129, 140, 248, 0.1), transparent 65%),
+      radial-gradient(ellipse 30% 28% at 55% 75%, rgba(45, 212, 191, 0.08), transparent 65%);
+  }
+  .three-hero canvas { width: 100%; height: 100%; }
+</style>
+
+<script>
+  const RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let renderer: any = null;
+  let raf = 0;
+
+  function destroy() {
+    cancelAnimationFrame(raf);
+    if (renderer) {
+      renderer.dispose();
+      renderer.forceContextLoss();
+      renderer = null;
+    }
+  }
+
+  async function init() {
+    const host = document.getElementById('three-hero');
+    const canvas = document.getElementById('three-canvas') as HTMLCanvasElement | null;
+    if (!host || !canvas || RM || renderer) return;
+
+    // three.js is only fetched on pages that actually render the hero
+    const THREE = await import('three');
+
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    } catch {
+      return; // fallback gradient stays
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
+    camera.position.z = 11;
+
+    /* --- theme-aware accents: read the active site theme's CSS vars (base fallbacks) --- */
+    const cs = getComputedStyle(document.documentElement);
+    const tone = (name: string, fallback: string) => cs.getPropertyValue(name).trim() || fallback;
+    const C_TEAL = tone('--teal', '#2dd4bf');
+    const C_CYAN = tone('--cyan', '#22d3ee');
+    const C_VIOLET = tone('--violet', '#818cf8');
+    // Light themes: dark-ink lines on a light page — additive blending would vanish, so use
+    // normal blending (and a touch more opacity for line weight).
+    const LIGHT = new Set(['daybreak', 'dune', 'rivendell']);
+    const isLight = LIGHT.has(document.documentElement.dataset.siteTheme || '');
+    const BLEND = isLight ? THREE.NormalBlending : THREE.AdditiveBlending;
+
+    /* --- particle field --- */
+    const N = 1400;
+    const pos = new Float32Array(N * 3);
+    const col = new Float32Array(N * 3);
+    const palette = [
+      new THREE.Color(C_TEAL),
+      new THREE.Color(C_CYAN),
+      new THREE.Color(C_VIOLET),
+    ];
+    for (let i = 0; i < N; i++) {
+      // spherical shell distribution with jitter
+      const r = 6 + Math.random() * 9;
+      const th = Math.random() * Math.PI * 2;
+      const ph = Math.acos(2 * Math.random() - 1);
+      pos[i * 3] = r * Math.sin(ph) * Math.cos(th);
+      pos[i * 3 + 1] = (r * Math.sin(ph) * Math.sin(th)) * 0.6;
+      pos[i * 3 + 2] = r * Math.cos(ph) - 4;
+      const c = palette[(Math.random() * palette.length) | 0];
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    }
+    const pGeo = new THREE.BufferGeometry();
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    pGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const pMat = new THREE.PointsMaterial({
+      size: 0.055,
+      vertexColors: true,
+      transparent: true,
+      opacity: isLight ? 0.7 : 0.85,
+      blending: BLEND,
+      depthWrite: false,
+    });
+    const points = new THREE.Points(pGeo, pMat);
+    scene.add(points);
+
+    /* --- wireframe torus knot --- */
+    const knot = new THREE.Mesh(
+      new THREE.TorusKnotGeometry(2.6, 0.72, 220, 36),
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color(C_CYAN),
+        wireframe: true,
+        transparent: true,
+        opacity: isLight ? 0.5 : 0.34,
+        blending: BLEND,
+        depthWrite: false,
+      })
+    );
+    knot.position.set(3.4, 0.3, 0);
+    scene.add(knot);
+
+    /* --- inner icosahedron --- */
+    const ico = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(1.15, 1),
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color(C_VIOLET),
+        wireframe: true,
+        transparent: true,
+        opacity: isLight ? 0.62 : 0.5,
+        blending: BLEND,
+        depthWrite: false,
+      })
+    );
+    ico.position.copy(knot.position);
+    scene.add(ico);
+
+    /* --- pointer parallax --- */
+    let tx = 0, ty = 0, cx = 0, cy = 0;
+    const onPointer = (e: PointerEvent) => {
+      tx = (e.clientX / window.innerWidth - 0.5) * 2;
+      ty = (e.clientY / window.innerHeight - 0.5) * 2;
+    };
+    window.addEventListener('pointermove', onPointer, { passive: true });
+
+    /* --- size --- */
+    const resize = () => {
+      if (!renderer) return;
+      const w = host.clientWidth, h = host.clientHeight;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      // narrow screens: move the geometry up and right, out of the text zone
+      const narrow = camera.aspect < 0.85;
+      const kx = narrow ? 2.4 : 3.4;
+      const ky = narrow ? 3.1 : 0.3;
+      const ks = narrow ? 0.62 : 1;
+      knot.position.set(kx, ky, 0);
+      ico.position.set(kx, ky, 0);
+      knot.scale.setScalar(ks);
+      ico.scale.setScalar(ks);
+    };
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(host);
+
+    /* --- pause off-screen --- */
+    let visible = true;
+    const io = new IntersectionObserver((en) => { visible = en[0].isIntersecting; }, { threshold: 0.02 });
+    io.observe(host);
+
+    const clock = new THREE.Clock();
+    function tick() {
+      raf = requestAnimationFrame(tick);
+      if (!visible || !renderer) return;
+      const t = clock.getElapsedTime();
+      cx += (tx - cx) * 0.04;
+      cy += (ty - cy) * 0.04;
+
+      knot.rotation.x = t * 0.14 + cy * 0.25;
+      knot.rotation.y = t * 0.2 + cx * 0.35;
+      ico.rotation.x = -t * 0.3;
+      ico.rotation.y = t * 0.42;
+      points.rotation.y = t * 0.018 + cx * 0.06;
+      points.rotation.x = cy * 0.04;
+      camera.position.x = cx * 0.55;
+      camera.position.y = -cy * 0.4;
+      camera.lookAt(1.6, 0, 0);
+
+      renderer.render(scene, camera);
+    }
+    tick();
+
+    document.addEventListener('astro:before-swap', () => {
+      ro.disconnect();
+      io.disconnect();
+      window.removeEventListener('pointermove', onPointer);
+      destroy();
+    }, { once: true });
+  }
+
+  document.addEventListener('astro:page-load', init);
+</script>

@@ -1,0 +1,136 @@
+---
+// DEV-ONLY glyph gallery - never shipped to production.
+// Renders every glyph + system body on a slow turntable so shapes can be
+// reviewed and approved before they go live. View at `npm run dev` -> /glyph-preview
+import { GLYPHS } from '../lib/glyphs/index.js';
+const glyphNames = Object.keys(GLYPHS);
+if (import.meta.env.PROD) return Astro.redirect('/', 302);
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Glyph preview (dev)</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { margin: 0; background: #04060c; color: #cbd5e1;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    header { padding: 18px 24px; border-bottom: 1px solid rgba(148,163,184,.15); }
+    header h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: .04em; color: #fff; }
+    header p { margin: 4px 0 0; font-size: 12px; color: #5b6b80; }
+    .wrap { position: relative; }
+    #gp-canvas { width: 100%; display: block; }
+    /* labels overlay the canvas as a CSS grid with the SAME cols/rows as the
+       3D grid, so each label auto-aligns under its glyph — no projection math */
+    #gp-labels { position: absolute; inset: 0; pointer-events: none; display: grid; }
+    .gp-label { align-self: end; justify-self: center; padding-bottom: 8px;
+      font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+      color: #9fb3c8; white-space: nowrap; text-align: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Glyph preview — {glyphNames.length} glyphs + system bodies</h1>
+    <p>Dev only (redirects to home in production). Each shape turns slowly in its constellation colour. Tell me which to redraw.</p>
+  </header>
+  <div class="wrap">
+    <canvas id="gp-canvas"></canvas>
+    <div id="gp-labels"></div>
+  </div>
+
+  <script type="application/json" id="gp-names" set:html={JSON.stringify(glyphNames)}></script>
+  <script>
+    import * as THREE from 'three';
+    import { GLYPHS } from '../lib/glyphs/index.js';
+    import { PALETTE, ACCENTS } from '../lib/galaxy/palette.js';
+    import { sunMonogram, nebulaCloud, PLANET_BUILDERS } from '../lib/galaxy/bodies.js';
+
+    // representative colour per glyph (its constellation), fallback marrow
+    const GLYPH_TOPIC = {
+      bone: 'marrow', glenohumeral: 'marrow', reticle: 'marrow', circuit: 'forge',
+      'torus-knot': 'forge', scroll: 'old-bones', 'open-book': 'marginalia',
+      'film-reel': 'after-hours', globe: 'atlas', 'taj-mahal': 'atlas',
+      'opera-house': 'atlas', 'edinburgh-castle': 'atlas',
+    };
+
+    const names = JSON.parse(document.getElementById('gp-names').textContent || '[]');
+    const entries = [
+      ...names.map((n) => ({ label: n, build: (T) => GLYPHS[n](T, PALETTE[GLYPH_TOPIC[n] || 'marrow'], ACCENTS[GLYPH_TOPIC[n] || 'marrow']) })),
+      { label: 'sun · the core', build: (T) => sunMonogram(T) },
+      ...['marrow', 'forge', 'old-bones', 'marginalia', 'after-hours', 'atlas']
+        .map((s) => ({ label: 'planet · ' + s, build: (T) => PLANET_BUILDERS[s](T) })),
+      { label: 'nebula', build: (T) => nebulaCloud(T) },
+    ];
+
+    const COLS = window.matchMedia('(max-width: 700px)').matches ? 3 : 4;
+    const CELL = 3.0;                       // world units per cell
+    const rows = Math.ceil(entries.length / COLS);
+    const gridW = COLS * CELL;
+    const gridH = rows * CELL;
+
+    const canvas = document.getElementById('gp-canvas');
+    const labelsEl = document.getElementById('gp-labels');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x04060c);
+
+    // orthographic camera framing the whole grid
+    const camera = new THREE.OrthographicCamera(0, gridW, 0, -gridH, -100, 100);
+    camera.position.z = 10;
+
+    const spinners = [];
+    const cellCentres = [];
+    entries.forEach((e, i) => {
+      const col = i % COLS, row = (i / COLS) | 0;
+      const cx = col * CELL + CELL / 2;
+      const cy = -(row * CELL + CELL / 2);
+      const holder = new THREE.Group();
+      holder.position.set(cx, cy + 0.35, 0); // nudge up to leave room for label
+      const obj = e.build(THREE);
+      // normalise each object to a uniform cell size
+      const box = new THREE.Box3().setFromObject(obj);
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+      obj.scale.setScalar(1.9 / maxDim);
+      holder.add(obj);
+      scene.add(holder);
+      spinners.push(holder);
+      cellCentres.push({ cx, cy, label: e.label });
+    });
+
+    // labels fill a CSS grid that mirrors the 3D grid (cols × rows), so each
+    // label lands in the same cell as its glyph automatically
+    labelsEl.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+    labelsEl.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+    cellCentres.forEach((c) => {
+      const d = document.createElement('div');
+      d.className = 'gp-label';
+      d.textContent = c.label;
+      labelsEl.appendChild(d);
+    });
+
+    function layout() {
+      const w = canvas.clientWidth;
+      const h = w * (gridH / gridW);
+      canvas.style.height = h + 'px';
+      renderer.setSize(w, h, false);
+    }
+    layout();
+    new ResizeObserver(layout).observe(canvas);
+
+    let raf = 0;
+    const clock = new THREE.Clock();
+    function tick() {
+      raf = requestAnimationFrame(tick);
+      const dt = Math.min(clock.getDelta(), 0.1);
+      spinners.forEach((s, i) => { s.rotation.y += dt * (0.35 + (i % 3) * 0.08); });
+      renderer.render(scene, camera);
+    }
+    tick();
+
+    document.addEventListener('astro:before-swap', () => { cancelAnimationFrame(raf); renderer.dispose(); }, { once: true });
+  </script>
+</body>
+</html>
