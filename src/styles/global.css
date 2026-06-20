@@ -341,9 +341,9 @@ main { padding-top: var(--header-h); }
      layouts (index/newspaper/timeline/terminal/headlines) reset background to
      none, so the tint only shows on the tile layouts (Reader/Cards/Magazine). */
   background:
-    linear-gradient(155deg, color-mix(in srgb, var(--card-accent, var(--teal)) 20%, transparent), transparent 60%),
+    linear-gradient(155deg, color-mix(in srgb, var(--card-accent, var(--teal)) 34%, transparent), transparent 74%),
     linear-gradient(160deg, var(--bg-2), var(--bg-1));
-  border: 1px solid color-mix(in srgb, var(--card-accent, var(--teal)) 26%, var(--line));
+  border: 1px solid color-mix(in srgb, var(--card-accent, var(--teal)) 44%, var(--line));
   border-radius: var(--radius);
   overflow: hidden;
   transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
@@ -1293,6 +1293,20 @@ article[data-template="parchment"] .article-body pre {
   background: #2a2418; border-color: #1d1810;
 }
 article[data-template="parchment"] .article-body pre code { color: #f0e6d2; }
+
+/* Light reading templates (parchment/newsprint) keep INTERACTIVE PLAYGROUNDS dark —
+   each is a self-contained dark widget. Without this, the cream surface's dark-ink
+   text vars (--ink-dim etc.) bleed into the playground's own dark sub-boxes
+   (e.g. .pg-readout's "skill acquired" pill) → dark-on-dark, illegible. Re-assert the
+   normal dark palette on the playground subtree so it renders as it does site-wide. */
+article[data-template="parchment"] .playground,
+article[data-template="newsprint"] .playground {
+  --bg-0: #04060c; --bg-1: #080c16; --bg-2: #0d1322; --bg-3: #131b2f;
+  --ink: #f4f7fd; --ink-dim: #c0c9da; --ink-faint: #9aa7c4;
+  --teal: #2dd4bf; --cyan: #22d3ee; --violet: #818cf8;
+  --line: rgba(140, 160, 200, 0.12); --line-strong: rgba(140, 160, 200, 0.22);
+  color: var(--ink-dim);
+}
 article[data-template="parchment"] .article-body figcaption { color: var(--ink-faint); }
 article[data-template="parchment"] .article-body img { border-color: var(--line-strong); box-shadow: 0 12px 36px rgba(80, 60, 30, 0.22); }
 article[data-template="parchment"] .post-hero-meta,
