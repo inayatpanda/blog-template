@@ -1,50 +1,65 @@
 ---
 import Base from '../layouts/Base.astro';
-import { getCollection } from 'astro:content';
 import { site } from '../lib/site';
 import { withBase } from '../lib/withBase';
+import { getDarkroomPhotos } from '../lib/darkroom-build.mjs';
+import 'photoswipe/style.css';
 
-// Glob all images under _images/<slug>/*.{jpg,jpeg,png,webp}
-// eager: true → default export is the resolved URL string
-const rawImgs = import.meta.glob('../content/blog/_images/**/*.{jpg,jpeg,png,webp}', { eager: true });
+const photos = await getDarkroomPhotos();
 
-// Build a map: slug → [url, url, ...]
-const bySlug: Record<string, string[]> = {};
-for (const [path, mod] of Object.entries(rawImgs)) {
-  // path shape: ../content/blog/_images/<slug>/filename.ext
-  const parts = path.split('/');
-  const imagesIdx = parts.indexOf('_images');
-  if (imagesIdx === -1) continue;
-  const slug = parts[imagesIdx + 1];
-  if (!slug) continue;
-  // Astro processes src/ images → default is ImageMetadata ({ src, width, … });
-  // some configs yield a plain URL string. Handle both so the <img> src is a string.
-  const def = (mod as { default: string | { src: string } }).default;
-  const url = typeof def === 'string' ? def : def.src;
-  if (!bySlug[slug]) bySlug[slug] = [];
-  bySlug[slug].push(url);
+// Compute the set of facet values actually present, preserving newest-first
+// order of first appearance (photos are already date-desc sorted).
+const yearSet = new Set<number>();
+const topicSet = new Set<string>();
+const cameraSet = new Set<string>();
+const tagSet = new Set<string>();
+const albumSet = new Set<string>();
+// Posts: keep slug → title so the chip can show the post title.
+const postMap = new Map<string, string>();
+
+for (const p of photos) {
+  yearSet.add(p.year);
+  for (const t of p.topics) topicSet.add(t);
+  if (p.camera) cameraSet.add(p.camera);
+  for (const t of p.tags) tagSet.add(t);
+  if (p.album) albumSet.add(p.album);
+  if (!postMap.has(p.postSlug)) postMap.set(p.postSlug, p.postTitle);
 }
 
-// Get published posts
-const posts = await getCollection('blog', ({ data }) => !data.draft);
+const years = [...yearSet].sort((a, b) => b - a);
+const topicList = [...topicSet];
+const cameras = [...cameraSet];
+const tags = [...tagSet];
+const albums = [...albumSet];
+const posts = [...postMap.entries()].map(([slug, title]) => ({ slug, title }));
 
-// Keep only slugs that match a published post; sort by post date descending
-interface PostGroup {
-  slug: string;
-  title: string;
-  date: Date;
-  images: string[];
+// Optional album titles. The file is loaded via a glob so it is genuinely
+// optional — if src/data/darkroom-albums.json is absent, the glob is empty and
+// every album simply falls back to its title-cased id. Schema:
+//   [{ "id": "japan-2026", "title": "Japan, 2026", "description"?: "…" }]
+type AlbumDef = { id: string; title?: string; description?: string };
+const albumDefsGlob = import.meta.glob<{ default: AlbumDef[] }>(
+  '../data/darkroom-albums.json',
+  { eager: true },
+);
+const albumTitles = new Map<string, string>();
+for (const mod of Object.values(albumDefsGlob)) {
+  const defs = Array.isArray(mod.default) ? mod.default : [];
+  for (const def of defs) {
+    if (def && def.id && def.title) albumTitles.set(def.id, def.title);
+  }
 }
 
-const groups: PostGroup[] = posts
-  .filter((p) => bySlug[p.slug] && bySlug[p.slug].length > 0)
-  .map((p) => ({
-    slug: p.slug,
-    title: p.data.title,
-    date: p.data.date,
-    images: bySlug[p.slug],
-  }))
-  .sort((a, b) => b.date.valueOf() - a.date.valueOf());
+// Title-case an album id for use when no explicit title is configured.
+const titleCaseId = (id: string) =>
+  id
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+
+// Album chip label: the configured title if defined, else the title-cased id.
+const albumLabel = (id: string) => albumTitles.get(id) ?? titleCaseId(id);
 ---
 <Base title="Darkroom" description={`A wall of photographs from across the posts on ${site.masthead}.`}>
 
@@ -66,30 +81,98 @@ const groups: PostGroup[] = posts
 
   <section class="section" style="padding-top:0">
     <div class="container">
-      {groups.length === 0 ? (
+      {photos.length === 0 ? (
         <p style="color: var(--ink-faint); font-family: var(--font-display); font-size:1rem;">
           Nothing developed yet.
         </p>
       ) : (
-        groups.map((group) => (
-          <div class="darkroom-group" data-reveal style="margin-bottom: 3rem;">
-            <h2 style="font-size:1.2rem; margin-bottom:1rem; color:var(--ink-dim);">
-              <a href={withBase(`/blog/${group.slug}/`)}
-                 style="color:var(--ink); border-bottom:1px solid var(--line-strong); transition:border-color 0.2s;"
-                 onmouseover="this.style.borderColor='var(--cyan)'"
-                 onmouseout="this.style.borderColor='var(--line-strong)'">
-                {group.title}
-              </a>
-            </h2>
-            <div class="gallery">
-              {group.images.map((url) => (
-                <img loading="lazy" src={url} alt="" />
-              ))}
+        <Fragment>
+          <div class="darkroom-filter" data-reveal aria-label="Filter photographs">
+            {years.length > 1 && (
+              <div class="dr-facet" data-facet-group="year">
+                <span class="dr-facet-label">Year</span>
+                {years.map((y) => (
+                  <button type="button" class="chip" data-facet="year" data-value={String(y)}>{y}</button>
+                ))}
+              </div>
+            )}
+            {topicList.length > 1 && (
+              <div class="dr-facet" data-facet-group="topic">
+                <span class="dr-facet-label">Topic</span>
+                {topicList.map((t) => (
+                  <button type="button" class="chip" data-facet="topic" data-value={t}>{t}</button>
+                ))}
+              </div>
+            )}
+            {cameras.length > 1 && (
+              <div class="dr-facet" data-facet-group="camera">
+                <span class="dr-facet-label">Camera</span>
+                {cameras.map((c) => (
+                  <button type="button" class="chip" data-facet="camera" data-value={c}>{c}</button>
+                ))}
+              </div>
+            )}
+            {tags.length > 0 && (
+              <div class="dr-facet" data-facet-group="tag">
+                <span class="dr-facet-label">Tags</span>
+                {tags.map((t) => (
+                  <button type="button" class="chip" data-facet="tag" data-value={t}>{t}</button>
+                ))}
+              </div>
+            )}
+            {albums.length > 0 && (
+              <div class="dr-facet" data-facet-group="album">
+                <span class="dr-facet-label">Album</span>
+                {albums.map((a) => (
+                  <button type="button" class="chip" data-facet="album" data-value={a}>{albumLabel(a)}</button>
+                ))}
+              </div>
+            )}
+            {posts.length > 1 && (
+              <div class="dr-facet" data-facet-group="post">
+                <span class="dr-facet-label">Post</span>
+                {posts.map((p) => (
+                  <button type="button" class="chip" data-facet="post" data-value={p.slug}>{p.title}</button>
+                ))}
+              </div>
+            )}
+            <div class="dr-facet dr-facet-meta">
+              <span id="dr-count" class="dr-count">{photos.length} photos</span>
+              <button type="button" id="dr-clear" class="chip">Clear</button>
             </div>
           </div>
-        ))
+
+          <div id="darkroom-grid" class="darkroom-grid" data-blogbase={withBase('/blog/')}>
+            {photos.map((photo) => (
+              <a class="dr-shot"
+                 href={photo.full}
+                 data-pswp-width={photo.width}
+                 data-pswp-height={photo.height}
+                 data-year={photo.year}
+                 data-topics={photo.topics.join(' ')}
+                 data-camera={photo.camera ?? ''}
+                 data-tags={photo.tags.join(' ')}
+                 data-album={photo.album ?? ''}
+                 data-post={photo.postSlug}
+                 data-caption={photo.caption ?? ''}
+                 data-posttitle={photo.postTitle}
+                 data-postslug={photo.postSlug}>
+                <img src={photo.thumb}
+                     loading="lazy"
+                     decoding="async"
+                     alt={photo.caption ?? ''}
+                     width={500}
+                     height={Math.round((500 * photo.height) / photo.width)} />
+              </a>
+            ))}
+          </div>
+        </Fragment>
       )}
     </div>
   </section>
+
+  <script>
+    import '../scripts/darkroom.js';
+  </script>
 
 </Base>

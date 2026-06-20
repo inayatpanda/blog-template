@@ -1,4 +1,4 @@
-# Content guide
+# Bone Deep — content guide
 
 Posts are markdown files in `src/content/blog/`. Raw HTML is allowed anywhere in a post,
 so every pattern below can be mixed with normal prose.
@@ -121,11 +121,67 @@ deploys via FTP and large binaries slow every build and deploy.
 
 ### Darkroom
 
-The `/darkroom/` page aggregates every gallery automatically. No extra steps are
-needed — add images to `_images/<slug>/` and they appear in Darkroom the next
-time the site builds. Posts are sorted newest-first. If no galleries exist yet,
-the page shows "Nothing developed yet."
+The `/darkroom/` page is a single wall of **every** photograph across the blog,
+collected automatically. Photos are gathered from
+`src/content/blog/_images/<post-slug>/` — exactly the same folders the in-post
+galleries use, so adding images to a post adds them to the Darkroom too. No extra
+steps are needed: drop images in and they appear the next time the site builds,
+newest-first. An image whose folder slug has no published post is ignored. If
+there are no photos at all, the page shows "Nothing developed yet."
+
+Each photo can be narrowed by a **filter bar** of facets and clicked into a
+full-screen lightbox (caption + a link back to its post).
+
+**Automatic facets (zero config).** Built for every photo with no work from you:
+
+- **Year** — from the photo's EXIF capture date (`DateTimeOriginal`). If the
+  image has no EXIF (e.g. screenshots, exported figures, or photos with stripped
+  metadata), the year falls back to the **post's `date`**.
+- **Camera** — from EXIF make/model, tidied (e.g. "Fujifilm X-T5"). Photos with
+  no EXIF simply don't carry a camera and are omitted from that facet.
+- **Topic** — the post's `tags` mapped to their top-level topic (via
+  `topics.json`), so a photo inherits the topics of the post it lives in.
+- **Post** — every photo links back to, and is filterable by, its post.
+
+A facet only appears when it has more than one value, so the bar stays tidy.
+
+**Optional metadata — the `meta.json` sidecar (opt-in).** To add captions, your
+own free-form tags (place, mood, subject, …), or group photos into an album, drop
+a `meta.json` next to the images, i.e. `src/content/blog/_images/<post-slug>/meta.json`.
+It is a map of **filename → optional fields**:
+
+```json
+{
+  "01.jpg": { "caption": "Dawn over the Kamo river", "tags": ["Kyoto", "calm", "water"], "album": "japan-2026" },
+  "02.jpg": { "tags": ["macro"] }
+}
+```
+
+Every field is optional, and so is the file itself. A photo with no entry (or no
+`meta.json`) just has no caption, no custom tags, and no album — the automatic
+facets above still apply. When **any** photo carries custom `tags` or an `album`,
+the corresponding **Tags** / **Album** facet appears in the filter bar. The
+caption (when present) is shown in the lightbox in place of the post title.
+
+**Optional album titles — `src/data/darkroom-albums.json`.** Albums are keyed by
+the `album` id you put in a sidecar (e.g. `"japan-2026"`). By default the Album
+facet shows a title-cased version of that id ("Japan 2026"). To control the
+display name (and record an optional description for later use), add the file —
+an array of `{ id, title, description? }`:
+
+```json
+[
+  { "id": "japan-2026", "title": "Japan, 2026", "description": "Two weeks, mostly on foot." }
+]
+```
+
+The file is optional: if it's absent, or an album id isn't listed in it, the
+title-cased id is used. An empty array `[]` is valid (the default).
+
+> Tip: pre-resize photos to ≤ 2560 px on the longest side before committing — the
+> site deploys via FTP and large binaries slow every build and deploy. The grid
+> serves small ~500 px thumbnails; the full-size image loads only in the lightbox.
 
 ## Publishing
 
-Commit to `main` → your CI workflow builds and deploys the site (GitHub Pages, Netlify, or Cloudflare Pages).
+Commit to `main` → GitHub Action builds and FTP-deploys to Hostinger (~2 min).

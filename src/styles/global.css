@@ -1554,3 +1554,101 @@ article[data-post-theme="parchment"]:not([data-template="observatory"]):not([dat
 article[data-post-theme="parchment"][data-template="manuscript"] .article-body > p:first-of-type {
   padding-bottom: 1.1em; border-bottom: 1px solid var(--line); margin-bottom: 0.2em;
 }
+
+/* ============================================================
+   Darkroom — faceted filter bar, CSS-columns masonry grid, and
+   PhotoSwipe dark theme. Dark house style throughout.
+   ============================================================ */
+
+/* ---------- filter bar ---------- */
+.darkroom-filter {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.9rem;
+  margin: 0 0 1.4rem;
+}
+.dr-facet {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem;
+}
+.dr-facet-label {
+  font-family: var(--font-display); font-size: 0.72rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-faint); margin-right: 0.15rem;
+}
+/* Darkroom chips run a touch smaller than the archive's. */
+.darkroom-filter .chip { min-height: 32px; padding: 0.3em 0.8em; font-size: 0.82rem; }
+/* the active accent comes from the shared `.chip.active` rule; `.is-active`
+   mirrors it so either hook lights the chip teal. */
+.darkroom-filter .chip.is-active {
+  color: var(--ink);
+  background: rgba(34, 211, 238, 0.1);
+  border-color: rgba(34, 211, 238, 0.4);
+  box-shadow: inset 0 0 18px rgba(34, 211, 238, 0.06), 0 0 14px rgba(34, 211, 238, 0.1);
+}
+.dr-facet-meta { margin-left: auto; gap: 0.7rem; }
+.dr-count {
+  font-family: var(--font-display); font-size: 0.82rem; color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+/* ---------- masonry grid (pure CSS columns — no layout-thrash with lazy imgs) ---------- */
+.darkroom-grid {
+  column-count: 2;
+  column-gap: 0.85rem;
+}
+@media (min-width: 620px)  { .darkroom-grid { column-count: 3; column-gap: 1rem; } }
+@media (min-width: 1000px) { .darkroom-grid { column-count: 4; } }
+@media (min-width: 1440px) { .darkroom-grid { column-count: 5; } }
+
+.dr-shot {
+  break-inside: avoid;
+  display: block;
+  margin-bottom: 0.85rem;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.dr-shot:hover {
+  transform: translateY(-3px);
+  border-color: rgba(34, 211, 238, 0.45);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.45), 0 0 18px rgba(34, 211, 238, 0.12);
+}
+.dr-shot img { width: 100%; height: auto; display: block; }
+.is-hidden { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dr-shot { transition: border-color 0.25s ease; }
+  .dr-shot:hover { transform: none; }
+}
+
+/* ---------- PhotoSwipe v5 — dark theme on-brand ---------- */
+.pswp {
+  --pswp-bg: #04060c;
+  --pswp-placeholder-bg: #080c16;
+  --pswp-icon-color: var(--ink);
+  --pswp-icon-color-secondary: #04060c;
+  --pswp-icon-stroke-color: rgba(4, 6, 12, 0.7);
+}
+/* caption strip: light ink on a translucent near-black bar, pinned bottom-left */
+.pswp .dr-caption {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.9rem;
+  padding: 0.7rem 1rem calc(0.7rem + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to top, rgba(4, 6, 12, 0.9), rgba(4, 6, 12, 0));
+  font-family: var(--font-display);
+  pointer-events: none; /* let the lightbox handle clicks except on the link */
+}
+.pswp .dr-caption:empty { display: none; }
+/* The caption text takes its own row so the "from this post →" link always sits
+   clearly below it (never running together with the caption text). */
+.pswp .pswp-cap-text { flex: 1 1 100%; color: var(--ink); font-size: 0.92rem; }
+.pswp .pswp-cap-link {
+  display: inline-block;
+  pointer-events: auto;
+  color: var(--cyan); font-size: 0.84rem; font-weight: 600; white-space: nowrap;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.4);
+  transition: color 0.2s, border-color 0.2s;
+}
+/* When a caption precedes it, add breathing room above the link. */
+.pswp .pswp-cap-text + .pswp-cap-link { margin-top: 0.15rem; }
+.pswp .pswp-cap-link:hover { color: var(--ink); border-color: var(--cyan); }
