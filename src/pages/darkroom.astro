@@ -17,7 +17,10 @@ for (const [path, mod] of Object.entries(rawImgs)) {
   if (imagesIdx === -1) continue;
   const slug = parts[imagesIdx + 1];
   if (!slug) continue;
-  const url = (mod as { default: string }).default;
+  // Astro processes src/ images → default is ImageMetadata ({ src, width, … });
+  // some configs yield a plain URL string. Handle both so the <img> src is a string.
+  const def = (mod as { default: string | { src: string } }).default;
+  const url = typeof def === 'string' ? def : def.src;
   if (!bySlug[slug]) bySlug[slug] = [];
   bySlug[slug].push(url);
 }

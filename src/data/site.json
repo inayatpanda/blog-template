@@ -10,6 +10,7 @@
     { "href": "/",             "label": "Home",        "primary": true },
     { "href": "/observatory/", "label": "Observatory", "primary": true, "themeLabel": true },
     { "href": "/posts/",     "label": "Posts",       "primary": true },
+    { "href": "/darkroom/",    "label": "Darkroom",    "primary": true },
     { "href": "/about/",       "label": "About" },
     { "href": "/contact/",     "label": "Contact" }
   ],
