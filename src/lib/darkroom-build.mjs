@@ -8,11 +8,18 @@
 //
 // Flow (all at build time, no network):
 //   1. Glob every image under content/blog/_images/<slug>/… → ImageMetadata.
-//   2. Read EXIF (date + camera) from each image's absolute fs path via exifr.
-//   3. Glob every meta.json sidecar → per-slug { filename → {caption,tags,album} }.
+//   2. Read EXIF (date + make/model) from each image's absolute fs path via exifr.
+//   3. Glob every meta.json sidecar → per-slug
+//      { filename → {caption,tags,album,date?,camera?,gps?} }.
 //   4. Join to published posts by slug (postTitle, topics, fallback date);
 //      DROP any image whose slug has no published post.
-//   5. Build one DarkroomPhoto per image; sort newest-first.
+//   5. Resolve date (sidecar ISO > EXIF > post) and camera (sidecar > tidied
+//      EXIF) per image, build one DarkroomPhoto, carry gps; sort newest-first.
+//
+// Sidecar precedence (load-bearing): the Studio uploader resizes photos, which
+// STRIPS EXIF, then writes date/camera/gps into meta.json. So for an uploaded
+// image the sidecar is the only source; image-EXIF remains the fallback for a
+// hand-added original.
 
 import { resolve } from 'node:path';
 import exifr from 'exifr';
@@ -21,7 +28,7 @@ import { getCollection } from 'astro:content';
 
 import topics from '../data/topics.json';
 import {
-  tidyCamera,
+  cameraFor,
   topicsForTags,
   pickDate,
   applySidecar,
@@ -59,7 +66,7 @@ function slugAndFile(path) {
 
 /**
  * Build the per-slug sidecar lookup from the meta.json glob:
- *   { '<slug>': { '<filename>': { caption?, tags?, album? }, … }, … }
+ *   { '<slug>': { '<filename>': { caption?, tags?, album?, date?, camera?, gps? }, … }, … }
  * @returns {Record<string, Record<string, import('./darkroom.mjs').SidecarEntry>>}
  */
 function buildSidecars() {
@@ -93,11 +100,14 @@ function sourcePath(key) {
 }
 
 /**
- * Read EXIF date + camera from an image's absolute filesystem path.
- * Degrades silently (returns { camera: null }) on any failure or when no EXIF is
- * present — stripped photos and the template's gradient placeholders take this path.
+ * Read the raw EXIF date + make/model from an image's absolute filesystem path.
+ * Returns the raw make/model (not a tidied camera) so the caller can apply the
+ * sidecar-camera precedence via `cameraFor`. Degrades silently (returns `{}`) on
+ * any failure or when no EXIF is present — resized uploads (EXIF stripped),
+ * hand-added photos without EXIF, and the template's gradient placeholders all
+ * take this path.
  * @param {string} path  the glob key (e.g. '../content/blog/_images/x/01.jpg')
- * @returns {Promise<{ date?: Date, camera: string | null }>}
+ * @returns {Promise<{ date?: Date, make?: string, model?: string }>}
  */
 async function readExif(path) {
   try {
@@ -105,14 +115,26 @@ async function readExif(path) {
     const exif = await exifr.parse(absPath, {
       pick: ['DateTimeOriginal', 'Make', 'Model'],
     });
-    if (!exif) return { camera: null };
+    if (!exif) return {};
     const date =
       exif.DateTimeOriginal instanceof Date ? exif.DateTimeOriginal : undefined;
-    const camera = tidyCamera(exif.Make, exif.Model);
-    return { date, camera };
+    return { date, make: exif.Make, model: exif.Model };
   } catch {
-    return { camera: null };
+    return {};
   }
+}
+
+/**
+ * Parse a sidecar `date` (an ISO 8601 string) into a Date, or undefined when
+ * absent/blank/unparseable — so a malformed sidecar date falls back to EXIF/post
+ * rather than poisoning the record with an Invalid Date.
+ * @param {unknown} value
+ * @returns {Date | undefined}
+ */
+function parseSidecarDate(value) {
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
 /**
@@ -153,11 +175,17 @@ export async function getDarkroomPhotos() {
       /** @type {any} */ (mod).default
     );
 
-    const { date: exifDate, camera } = await readExif(path);
-    if (exifDate) exifDateCount += 1;
+    const entry = sidecars[info.slug]?.[info.filename];
+
+    const { date: exifDate, make, model } = await readExif(path);
+    const sidecarDate = parseSidecarDate(entry?.date);
+    // Sidecar ISO date wins (resized uploads have no EXIF), then EXIF, then post.
+    const date = pickDate(exifDate, post.date, sidecarDate);
+    if (sidecarDate || exifDate) exifDateCount += 1;
     else fallbackDateCount += 1;
 
-    const date = pickDate(exifDate, post.date);
+    // Sidecar camera wins; otherwise tidy the image's own EXIF make/model.
+    const camera = cameraFor(entry?.camera, make, model);
 
     // ~500px derivative for the grid; full-size URL + intrinsic dims for the lightbox.
     const thumb = await getImage({ src: meta, width: 500 });
@@ -175,13 +203,13 @@ export async function getDarkroomPhotos() {
       topics: post.topics,
     };
 
-    const entry = sidecars[info.slug]?.[info.filename];
     photos.push(applySidecar(base, entry));
   }
 
-  // Build-time visibility: how many photos got a real EXIF date vs. the fallback.
+  // Build-time visibility: how many photos got a real date (sidecar or EXIF) vs.
+  // the post-date fallback.
   console.log(
-    `[darkroom] ${photos.length} photo(s): ${exifDateCount} with EXIF date, ${fallbackDateCount} via post-date fallback.`,
+    `[darkroom] ${photos.length} photo(s): ${exifDateCount} with a sidecar/EXIF date, ${fallbackDateCount} via post-date fallback.`,
   );
 
   return sortByDateDesc(photos);

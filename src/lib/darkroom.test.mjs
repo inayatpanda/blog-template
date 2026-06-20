@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   tidyCamera,
+  cameraFor,
   topicsForTags,
   pickDate,
   applySidecar,
@@ -53,6 +54,28 @@ test('tidyCamera returns null when both make and model are absent', () => {
   assert.equal(tidyCamera(undefined, undefined), null);
   assert.equal(tidyCamera('', ''), null);
   assert.equal(tidyCamera(null, null), null);
+});
+
+// ---- cameraFor -----------------------------------------------------------
+
+test('cameraFor prefers a non-empty sidecar camera over EXIF make/model', () => {
+  // The sidecar wins even when EXIF make/model are also present.
+  assert.equal(cameraFor('Leica Q3', 'FUJIFILM', 'X-T5'), 'Leica Q3');
+});
+
+test('cameraFor falls back to tidyCamera(make, model) when the sidecar camera is empty', () => {
+  assert.equal(cameraFor(undefined, 'FUJIFILM', 'X-T5'), 'Fujifilm X-T5');
+  assert.equal(cameraFor('', 'Canon', 'Canon EOS R5'), 'Canon EOS R5');
+  assert.equal(cameraFor(null, 'NIKON', 'NIKON Z6'), 'Nikon Z6');
+});
+
+test('cameraFor treats a whitespace-only sidecar camera as empty', () => {
+  assert.equal(cameraFor('   ', 'FUJIFILM', 'X-T5'), 'Fujifilm X-T5');
+});
+
+test('cameraFor returns null when both the sidecar camera and EXIF are absent', () => {
+  assert.equal(cameraFor(undefined, undefined, undefined), null);
+  assert.equal(cameraFor('', '', ''), null);
 });
 
 // ---- topicsForTags -------------------------------------------------------
@@ -107,6 +130,23 @@ test('pickDate falls back to the post date when EXIF is absent', () => {
   assert.equal(pickDate(undefined, post), post);
 });
 
+test('pickDate prefers a sidecar date over both the EXIF date and the post date', () => {
+  // Resized uploads have no EXIF, so the sidecar ISO date must win.
+  const sidecar = new Date('2025-09-09T12:00:00.000Z');
+  const exif = new Date('2024-03-01T08:00:00.000Z');
+  const post = new Date('2026-06-01T00:00:00.000Z');
+  assert.equal(pickDate(exif, post, sidecar), sidecar);
+});
+
+test('pickDate falls back to EXIF then post date when no sidecar date is given', () => {
+  const exif = new Date('2024-03-01T08:00:00.000Z');
+  const post = new Date('2026-06-01T00:00:00.000Z');
+  // Sidecar absent → EXIF wins over post.
+  assert.equal(pickDate(exif, post, undefined), exif);
+  // Sidecar and EXIF absent → post date.
+  assert.equal(pickDate(undefined, post, undefined), post);
+});
+
 // ---- applySidecar --------------------------------------------------------
 
 const basePhoto = () => ({
@@ -149,6 +189,25 @@ test('applySidecar fills only the missing optional fields from a partial entry',
   assert.deepEqual(out.tags, ['macro']);
   assert.equal(out.album, null);
   assert.equal(out.caption, null);
+});
+
+test('applySidecar passes a sidecar gps coordinate through to the photo', () => {
+  const out = applySidecar(basePhoto(), { gps: [35.0116, 135.7681] });
+  assert.deepEqual(out.gps, [35.0116, 135.7681]);
+});
+
+test('applySidecar defaults gps to null when the entry omits it', () => {
+  assert.equal(applySidecar(basePhoto(), { tags: ['macro'] }).gps, null);
+  assert.equal(applySidecar(basePhoto()).gps, null);
+});
+
+test('applySidecar preserves the base date and camera (resolved by the build)', () => {
+  // date/camera are resolved upstream (sidecar-wins) and carried on the base;
+  // applySidecar must not clobber them.
+  const base = basePhoto();
+  const out = applySidecar(base, { gps: [1, 2] });
+  assert.equal(out.date, base.date);
+  assert.equal(out.camera, base.camera);
 });
 
 // ---- sortByDateDesc ------------------------------------------------------

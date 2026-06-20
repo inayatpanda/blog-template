@@ -17,13 +17,14 @@
  * @property {number} height    Full-size intrinsic height.
  * @property {string} postSlug
  * @property {string} postTitle
- * @property {Date}   date       EXIF DateTimeOriginal ?? post.data.date.
+ * @property {Date}   date       Sidecar `date` ?? EXIF DateTimeOriginal ?? post.data.date.
  * @property {number} year       Derived from `date`.
- * @property {string|null} camera EXIF "Make Model" tidied (e.g. "Fujifilm X-T5"); null if no EXIF.
+ * @property {string|null} camera Sidecar `camera` else tidied EXIF "Make Model" (e.g. "Fujifilm X-T5"); null if neither.
  * @property {string[]} topics   The post's tags mapped to top-level topic names via topics.json.
  * @property {string[]} tags     OPTIONAL user tags from the sidecar (location, mood, subject, …).
  * @property {string|null} album OPTIONAL album id from the sidecar.
  * @property {string|null} caption OPTIONAL caption from the sidecar.
+ * @property {[number, number]|null} gps OPTIONAL [lat, lng] from the sidecar (for a future Place facet); null if absent.
  */
 
 /**
@@ -40,15 +41,24 @@
 
 /**
  * The base photo record before the sidecar's optional fields are merged in.
- * @typedef {Omit<DarkroomPhoto, 'tags'|'album'|'caption'>} DarkroomPhotoBase
+ * `date` and `camera` ARE already resolved on the base (the assembler applies
+ * the sidecar precedence via `pickDate`/`cameraFor`); only the purely-sidecar
+ * fields (`tags`/`album`/`caption`/`gps`) are layered on by `applySidecar`.
+ * @typedef {Omit<DarkroomPhoto, 'tags'|'album'|'caption'|'gps'>} DarkroomPhotoBase
  */
 
 /**
  * Optional per-photo metadata from a `meta.json` sidecar entry.
+ * `date`/`camera`/`gps` are written by the Studio uploader because resizing an
+ * image strips its EXIF; they are read by the assembler (date/camera feed the
+ * precedence helpers, gps is carried through).
  * @typedef {Object} SidecarEntry
  * @property {string} [caption]
  * @property {string[]} [tags]
  * @property {string} [album]
+ * @property {string} [date]   ISO 8601 date string (sidecar wins over EXIF/post date).
+ * @property {string} [camera] Display camera string (wins over tidied EXIF make/model).
+ * @property {[number, number]} [gps] [lat, lng].
  */
 
 /** Title-case a single make token: "FUJIFILM" → "Fujifilm", "nikon" → "Nikon". */
@@ -92,6 +102,25 @@ export function tidyCamera(make, model) {
 }
 
 /**
+ * Choose the photo's display camera: a non-empty sidecar `camera` wins;
+ * otherwise fall back to the tidied EXIF make/model. Returns null when neither
+ * yields anything.
+ *
+ * Resized uploads have no EXIF, so the Studio writes the camera into the
+ * sidecar; a hand-added original keeps the EXIF fallback.
+ *
+ * @param {string|null|undefined} sidecarCamera
+ * @param {string|null|undefined} exifMake
+ * @param {string|null|undefined} exifModel
+ * @returns {string|null}
+ */
+export function cameraFor(sidecarCamera, exifMake, exifModel) {
+  const sc = (sidecarCamera ?? '').trim();
+  if (sc) return sc;
+  return tidyCamera(exifMake, exifModel);
+}
+
+/**
  * Map a list of post tags to their top-level topic names.
  * A tag matches a topic if it equals the topic's own `tag` OR any `sub[].tag`.
  * Unknown tags are dropped; results are de-duplicated; first-seen order is preserved.
@@ -120,18 +149,22 @@ export function topicsForTags(tags, topics) {
 }
 
 /**
- * Choose the photo's date: the EXIF DateTimeOriginal if present, else the post date.
+ * Choose the photo's date by precedence: a sidecar `date` wins (resized uploads
+ * have no EXIF), then the EXIF DateTimeOriginal, then the post date.
  * @param {Date|undefined} exifDate
  * @param {Date} postDate
+ * @param {Date|undefined} [sidecarDate]
  * @returns {Date}
  */
-export function pickDate(exifDate, postDate) {
-  return exifDate ?? postDate;
+export function pickDate(exifDate, postDate, sidecarDate) {
+  return sidecarDate ?? exifDate ?? postDate;
 }
 
 /**
  * Merge an optional sidecar entry onto a base photo record, applying defaults
- * for any field the entry omits (`tags:[]`, `album:null`, `caption:null`).
+ * for any field the entry omits (`tags:[]`, `album:null`, `caption:null`,
+ * `gps:null`). The base's `date`/`camera` (already resolved with sidecar
+ * precedence by the assembler) are preserved unchanged.
  *
  * @param {DarkroomPhotoBase} base
  * @param {SidecarEntry} [entry]
@@ -144,6 +177,7 @@ export function applySidecar(base, entry) {
     caption: e.caption ?? null,
     tags: e.tags ?? [],
     album: e.album ?? null,
+    gps: e.gps ?? null,
   };
 }
 
