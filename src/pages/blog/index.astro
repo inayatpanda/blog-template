@@ -1,4 +1,6 @@
 ---
-// The blog now lives at the site root. Send /blog/ → /
-return Astro.redirect('/', 301);
+import { withBase } from '../../lib/withBase';
+// The blog now lives at the site root. Send /blog/ → / (base-aware for a
+// GitHub Pages sub-path; no-op at base '/').
+return Astro.redirect(withBase('/'), 301);
 ---

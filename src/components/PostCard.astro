@@ -13,6 +13,7 @@ interface Post {
     accent: string;
   };
 }
+import { withBase } from '../lib/withBase';
 interface Props {
   post: Post;
   // optional reveal wiring so each call site can keep its GSAP stagger
@@ -29,7 +30,7 @@ const revealAttrs = reveal
 ---
 <a
   class="post-card"
-  href={`/blog/${post.slug}/`}
+  href={withBase(`/blog/${post.slug}/`)}
   data-tags={post.data.tags.join(',')}
   style={`--card-accent:${post.data.accent}`}
   {...revealAttrs}

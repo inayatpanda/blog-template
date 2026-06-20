@@ -3,8 +3,9 @@
 // Renders every glyph + system body on a slow turntable so shapes can be
 // reviewed and approved before they go live. View at `npm run dev` -> /glyph-preview
 import { GLYPHS } from '../lib/glyphs/index.js';
+import { withBase } from '../lib/withBase';
 const glyphNames = Object.keys(GLYPHS);
-if (import.meta.env.PROD) return Astro.redirect('/', 302);
+if (import.meta.env.PROD) return Astro.redirect(withBase('/'), 302);
 ---
 <!doctype html>
 <html lang="en">

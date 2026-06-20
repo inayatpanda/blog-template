@@ -5,6 +5,7 @@ import '../styles/global.css';
 import { ViewTransitions } from 'astro:transitions';
 import Icon from '../components/Icon.astro';
 import { site, pageTitle } from '../lib/site';
+import { withBase } from '../lib/withBase';
 
 // Build footer socials from site.json (non-empty values only)
 const socialLinks = [
@@ -31,20 +32,27 @@ const {
 } = Astro.props;
 
 // Canonical + absolute share-image URLs, resolved against `site` in astro.config.
+// Astro.url.pathname already carries the configured base; the share image is a
+// root-absolute path we pass in, so base-prefix it (no-op at base '/').
 const canonical = new URL(Astro.url.pathname, Astro.site).href;
-const ogImageUrl = new URL(ogImage, Astro.site).href;
+const ogImageUrl = new URL(withBase(ogImage), Astro.site).href;
 
 // `primary` items show as a single quick-access row on mobile; the hamburger holds
 // the full menu. Order is deliberate: Home, Observatory, Writing, Darkroom, then the rest.
-const nav = [
+// Nav is data-driven from site.json (`site.nav`); NAV_FALLBACK reproduces today's nav
+// exactly so a site that omits `nav` is visually unchanged. The Observatory item carries
+// `themeLabel: true` — applyThemeTerms() renames it per active theme; all other items
+// emit `data-fixed-label` so the theme renamer skips them.
+const NAV_FALLBACK = [
   { href: '/', label: 'Home', primary: true },
-  { href: '/observatory/', label: 'Observatory', primary: true },
+  { href: '/observatory/', label: 'Observatory', primary: true, themeLabel: true },
   { href: '/writing/', label: 'Writing', primary: true },
   { href: '/darkroom/', label: 'Darkroom', primary: true },
   { href: '/apps/', label: 'Apps' },
   { href: '/about/', label: 'About' },
   { href: '/contact/', label: 'Contact' },
 ];
+const nav = (site.nav && site.nav.length ? site.nav : NAV_FALLBACK);
 const path = Astro.url.pathname;
 const isCurrent = (href: string) => {
   if (href === '/') return path === '/';
@@ -65,12 +73,12 @@ const isCurrent = (href: string) => {
     <script is:inline define:vars={{ defaultTheme: site.defaultTheme }}>
       (function(){ try { var t = localStorage.getItem('site-theme') || defaultTheme; if (t && t !== 'observatory') document.documentElement.dataset.siteTheme = t; } catch (e) {} })();
     </script>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
     <title>{pageTitle(title)}</title>
 
     {/* Canonical + feed */}
     <link rel="canonical" href={canonical} />
-    <link rel="alternate" type="application/rss+xml" title={site.masthead} href="/rss.xml" />
+    <link rel="alternate" type="application/rss+xml" title={site.masthead} href={withBase('/rss.xml')} />
 
     {/* Open Graph */}
     <meta property="og:site_name" content={site.masthead} />
@@ -94,7 +102,7 @@ const isCurrent = (href: string) => {
 
     <header class="site-header">
       <div class="container">
-        <a class="logo" href="/">{site.name}</a>
+        <a class="logo" href={withBase('/')}>{site.name}</a>
         <button class="nav-toggle" id="nav-toggle" aria-label="Menu" aria-expanded="false" aria-controls="site-nav">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round">
             <path d="M4 7h16M4 12h16M4 17h16" />
@@ -103,12 +111,12 @@ const isCurrent = (href: string) => {
         {/* Mobile-only single quick-access row (primary items). Desktop hides it; the full nav is inline. */}
         <nav class="nav-primary" aria-label="Primary">
           {nav.filter((n) => n.primary).map((n) => (
-            <a href={n.href} aria-current={isCurrent(n.href) ? 'page' : undefined}>{n.label}</a>
+            <a href={withBase(n.href)} aria-current={isCurrent(n.href) ? 'page' : undefined} data-fixed-label={n.themeLabel ? undefined : ''}>{n.label}</a>
           ))}
         </nav>
         <nav class="site-nav" id="site-nav" aria-label="Main">
           {nav.map((n) => (
-            <a href={n.href} aria-current={isCurrent(n.href) ? 'page' : undefined}>{n.label}</a>
+            <a href={withBase(n.href)} aria-current={isCurrent(n.href) ? 'page' : undefined} data-fixed-label={n.themeLabel ? undefined : ''}>{n.label}</a>
           ))}
         </nav>
         <div class="theme-menu" id="theme-menu">
@@ -153,14 +161,14 @@ const isCurrent = (href: string) => {
           <button type="button" data-theme="rivendell" aria-pressed="false">Rivendell</button>
         </div>
         <nav aria-label="Footer">
-          <a href="/">Home</a>
-          <a href="/writing/">Writing</a>
-          <a href="/observatory/">Observatory</a>
-          <a href="/apps/">Apps</a>
-          <a href="/about/">About</a>
-          <a href="/darkroom/">Darkroom</a>
-          <a href="/contact/">Contact</a>
-          <a href="/rss.xml">RSS</a>
+          <a href={withBase('/')}>Home</a>
+          <a href={withBase('/writing/')}>Posts</a>
+          <a href={withBase('/observatory/')}>Observatory</a>
+          <a href={withBase('/apps/')}>Apps</a>
+          <a href={withBase('/about/')}>About</a>
+          <a href={withBase('/darkroom/')}>Darkroom</a>
+          <a href={withBase('/contact/')}>Contact</a>
+          <a href={withBase('/rss.xml')}>RSS</a>
         </nav>
         {socialLinks.length > 0 && (
           <div class="footer-socials">
@@ -395,7 +403,11 @@ const isCurrent = (href: string) => {
       function applyThemeTerms() {
         const id = document.documentElement.dataset.siteTheme || 'observatory';
         const t = THEME_TERMS[id] || THEME_TERMS.observatory;
-        document.querySelectorAll<HTMLAnchorElement>('a[href="/observatory/"]').forEach((a) => { a.textContent = t.nav; });
+        // Only rename nav links that opted in (themeLabel → no data-fixed-label). The footer
+        // Observatory link has no data-fixed-label, so it is renamed too, as before.
+        // Base-aware: at a Pages sub-path the href is '/<base>/observatory/' (Vite inlines BASE_URL).
+        const obsHref = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') + '/observatory/';
+        document.querySelectorAll<HTMLAnchorElement>(`a[href="${obsHref}"]:not([data-fixed-label])`).forEach((a) => { a.textContent = t.nav; });
         const eyebrow = document.querySelector('.obs-title-eyebrow'); if (eyebrow) eyebrow.textContent = t.page;
         const legendTitle = document.querySelector('.legend-title'); if (legendTitle) legendTitle.textContent = t.groups;
         const accSpan = document.querySelector('.obs-acc-toggle span:not(.obs-acc-caret)'); if (accSpan) accSpan.textContent = t.groups;

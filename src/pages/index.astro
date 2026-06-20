@@ -5,6 +5,7 @@ import PostCard from '../components/PostCard.astro';
 import topics from '../data/topics.json';
 import profile from '../data/profile.json';
 import { site } from '../lib/site';
+import { withBase } from '../lib/withBase';
 import { getCollection } from 'astro:content';
 
 const posts = (await getCollection('blog', ({ data }) => !data.draft))
@@ -67,7 +68,7 @@ const jsonLd = {
       <p class="lead scrim-text" data-reveal data-delay="0.16">{site.tagline}</p>
       <div class="hero-cues" data-reveal data-delay="0.24">
         <a class="btn btn-primary" href="#latest">Read the latest</a>
-        <a class="btn btn-ghost" href="/about/">About me</a>
+        <a class="btn btn-ghost" href={withBase('/about/')}>About me</a>
       </div>
     </div>
     <div class="scroll-cue" aria-hidden="true"><span></span></div>
@@ -80,7 +81,7 @@ const jsonLd = {
       <div class="section-head">
         <h2 class="section-title">Latest</h2>
         <span class="rule"></span>
-        <a class="see-all" href="/writing/">Browse all writing →</a>
+        <a class="see-all" href={withBase('/writing/')}>Browse all writing →</a>
       </div>
       <div class="post-list">
         {latest.map((p, i) => (
@@ -96,13 +97,13 @@ const jsonLd = {
       <div class="section-head">
         <h2 class="section-title">Browse by topic</h2>
         <span class="rule"></span>
-        <a class="see-all" href="/observatory/">See the Observatory →</a>
+        <a class="see-all" href={withBase('/observatory/')}>See the Observatory →</a>
       </div>
       <div class="const-grid">
         {constellations.map((c, i) => (
           <a
             class="const-card"
-            href={`/c/${c.tag}/`}
+            href={withBase(`/c/${c.tag}/`)}
             style={`--c-accent:${c.color}`}
             data-reveal
             data-delay={String(Math.min(i * 0.05, 0.3))}
@@ -129,7 +130,7 @@ const jsonLd = {
         <div class="section-head">
           <h2 class="section-title">Check out the interactives</h2>
           <span class="rule"></span>
-          <a class="see-all" href="/c/interactive/">All interactive →</a>
+          <a class="see-all" href={withBase('/c/interactive/')}>All interactive →</a>
         </div>
         <p class="lead interactive-lead">Posts with sliders, toggles and things you can poke at.</p>
         <div class="interactive-rail">

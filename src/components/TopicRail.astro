@@ -3,6 +3,7 @@
 // but each item navigates to that constellation page (/c/<tag>/).
 import topics from '../data/topics.json';
 import { getCollection } from 'astro:content';
+import { withBase } from '../lib/withBase';
 
 interface Props {
   activeTags?: string[];
@@ -24,13 +25,13 @@ const visibleTopics = topics
     <summary class="rail-title">Topics <span class="acc-caret" aria-hidden="true">▾</span></summary>
     <ul class="topic-list">
       <li>
-        <a class="topic-btn" href="/writing/">
+        <a class="topic-btn" href={withBase('/writing/')}>
           All posts <span class="count">{posts.length}</span>
         </a>
       </li>
       {visibleTopics.map((t) => (
         <li>
-          <a class:list={['topic-btn', { active: activeTags.includes(t.tag) }]} href={`/c/${t.tag}/`}>
+          <a class:list={['topic-btn', { active: activeTags.includes(t.tag) }]} href={withBase(`/c/${t.tag}/`)}>
             <span class="topic-name">{t.name}</span>
             {t.subtitle && <span class="topic-subtitle">{t.subtitle}</span>}
             <span class="count">{t.count}</span>
@@ -39,7 +40,7 @@ const visibleTopics = topics
             <ul class="topic-sub">
               {t.sub.map((s) => (
                 <li>
-                  <a class:list={['topic-btn', { active: activeTags.includes(s.tag) }]} href={`/c/${s.tag}/`}>
+                  <a class:list={['topic-btn', { active: activeTags.includes(s.tag) }]} href={withBase(`/c/${s.tag}/`)}>
                     {s.name} <span class="count">{s.count}</span>
                   </a>
                 </li>

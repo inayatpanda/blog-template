@@ -1,8 +1,8 @@
 name: Deploy to GitHub Pages
 on:
   workflow_dispatch:
-  # uncomment to deploy to GitHub Pages on every push to main:
-  # push: { branches: [main] }
+  push:
+    branches: [main]
 permissions:
   contents: read
   pages: write
@@ -17,6 +17,8 @@ jobs:
         with: { node-version: 20, cache: npm }
       - run: npm ci
       - run: npm run build
+        env:
+          BASE_PATH: "/${{ github.event.repository.name }}/"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: { path: ./dist }

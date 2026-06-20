@@ -5,6 +5,7 @@ import GlyphBadge from '../../components/GlyphBadge.astro';
 import { getCollection } from 'astro:content';
 import topics from '../../data/topics.json';
 import { site } from '../../lib/site';
+import { withBase } from '../../lib/withBase';
 import { seriesContextFor, seriesSlug } from '../../lib/series';
 
 export async function getStaticPaths() {
@@ -34,10 +35,12 @@ const broadTags = new Set(topics.map((t) => t.tag));
 const topic = (post.data.tags || []).find((t) => broadTags.has(t)) || 'forge';
 
 // --- SEO/AEO: canonical + share image + BlogPosting JSON-LD ---
-const canonical = new URL(`/blog/${post.slug}/`, Astro.site).href;
+// These resolve against `site` (not base-aware), so base-prefix the paths so a
+// Pages sub-path deploy emits correct absolute URLs. No-op at base '/'.
+const canonical = new URL(withBase(`/blog/${post.slug}/`), Astro.site).href;
 // Per-post generated share card (real photo in frontmatter wins, if a post sets one).
 const shareImage = post.data.image ?? `/og/${post.slug}.png`;
-const imageUrl = new URL(shareImage, Astro.site).href;
+const imageUrl = new URL(withBase(shareImage), Astro.site).href;
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -84,7 +87,7 @@ const jsonLd = {
       </div>
       <div class="grid-lines" aria-hidden="true"></div>
       <div class="container post-hero-inner">
-        <a class="back-link" href="/writing/" data-reveal>
+        <a class="back-link" href={withBase('/writing/')} data-reveal>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M19 12H5m6 6-6-6 6-6"/></svg>
           All writing
         </a>
@@ -98,11 +101,11 @@ const jsonLd = {
           <span>{readMins} min read</span>
           {post.data.tags.includes('interactive') && <span class="badge-interactive">Interactive</span>}
           {post.data.tags.filter((t) => t !== 'interactive').map((t) => (
-            <a class="tag-chip" href={`/c/${t}/`}>{t}</a>
+            <a class="tag-chip" href={withBase(`/c/${t}/`)}>{t}</a>
           ))}
         </div>
         {series && (
-          <a class="series-flag" href={`/series/${series.slug}/`} data-reveal data-delay="0.16">
+          <a class="series-flag" href={withBase(`/series/${series.slug}/`)} data-reveal data-delay="0.16">
             <span class="sf-part">Part {series.part} of {series.total}</span>
             <span class="sf-dot" aria-hidden="true">·</span>
             <span class="sf-name">{series.name}</span>
@@ -119,7 +122,7 @@ const jsonLd = {
           <aside class="series-contents" aria-label={`${series.name} — series contents`}>
             <div class="sc-head">
               <span class="sc-eyebrow">Series</span>
-              <a class="sc-title" href={`/series/${series.slug}/`}>{series.name}</a>
+              <a class="sc-title" href={withBase(`/series/${series.slug}/`)}>{series.name}</a>
             </div>
             <ol class="sc-list">
               {series.posts.map((p, i) => (
@@ -127,7 +130,7 @@ const jsonLd = {
                   <span class="sc-n" aria-hidden="true">{i + 1}</span>
                   {p.slug === post.slug
                     ? <span class="sc-this" aria-current="true">{p.data.title}<span class="sc-here"> — you’re here</span></span>
-                    : <a href={`/blog/${p.slug}/`}>{p.data.title}</a>}
+                    : <a href={withBase(`/blog/${p.slug}/`)}>{p.data.title}</a>}
                 </li>
               ))}
             </ol>
@@ -141,13 +144,13 @@ const jsonLd = {
         {series && (series.prev || series.next) && (
           <nav class="series-nav" aria-label={`${series.name} series`}>
             {series.prev ? (
-              <a class="series-nav-link" href={`/blog/${series.prev.slug}/`}>
+              <a class="series-nav-link" href={withBase(`/blog/${series.prev.slug}/`)}>
                 <span class="sn-label">← Previous in series</span>
                 <span class="sn-title">{series.prev.data.title}</span>
               </a>
             ) : <span />}
             {series.next ? (
-              <a class="series-nav-link sn-next" href={`/blog/${series.next.slug}/`}>
+              <a class="series-nav-link sn-next" href={withBase(`/blog/${series.next.slug}/`)}>
                 <span class="sn-label">Next in series →</span>
                 <span class="sn-title">{series.next.data.title}</span>
               </a>
@@ -156,13 +159,13 @@ const jsonLd = {
         )}
         <nav class="post-nav" aria-label="More posts">
           {prev ? (
-            <a class="post-nav-link" href={`/blog/${prev.slug}/`}>
+            <a class="post-nav-link" href={withBase(`/blog/${prev.slug}/`)}>
               <span class="pn-label">← Older</span>
               <span class="pn-title">{prev.data.title}</span>
             </a>
           ) : <span />}
           {next ? (
-            <a class="post-nav-link pn-next" href={`/blog/${next.slug}/`}>
+            <a class="post-nav-link pn-next" href={withBase(`/blog/${next.slug}/`)}>
               <span class="pn-label">Newer →</span>
               <span class="pn-title">{next.data.title}</span>
             </a>
@@ -171,8 +174,8 @@ const jsonLd = {
         <div class="post-cta">
           <p>Thoughts, corrections, disagreements — all welcome.</p>
           <div class="post-cta-btns">
-            <a class="btn btn-primary" href="/contact/">Get in touch</a>
-            <a class="btn btn-ghost" href="/writing/">More writing</a>
+            <a class="btn btn-primary" href={withBase('/contact/')}>Get in touch</a>
+            <a class="btn btn-ghost" href={withBase('/writing/')}>More writing</a>
           </div>
         </div>
       </div>

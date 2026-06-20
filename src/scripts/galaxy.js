@@ -547,9 +547,13 @@ export function initGalaxy({ canvas, overlay, mode = 'hero', data, prefersReduce
   }
 
   // a post icon leads to its TOPIC page (/c/<topic>/), not the individual post.
+  // p.url is already base-prefixed (built in lib/galaxy/data.js); the fallback
+  // base-prefixes too so a Pages sub-path deploy navigates correctly.
   function topicUrl(slug) {
     const p = planetsData.find((x) => x.slug === slug);
-    return (p && p.url) || ('/c/' + slug + '/');
+    if (p && p.url) return p.url;
+    const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+    return base + '/c/' + slug + '/';
   }
   function postSpec(item) {
     const topic = item.topic;

@@ -5,6 +5,14 @@
   "description": "A sentence describing your blog — used for SEO and social cards.",
   "url": "https://your-domain.com",
   "defaultTheme": "observatory",
+  "core": "tori",
+  "nav": [
+    { "href": "/",             "label": "Home",        "primary": true },
+    { "href": "/observatory/", "label": "Observatory", "primary": true, "themeLabel": true },
+    { "href": "/writing/",     "label": "Posts",       "primary": true },
+    { "href": "/about/",       "label": "About" },
+    { "href": "/contact/",     "label": "Contact" }
+  ],
   "socials": { "linkedin": "", "instagram": "", "github": "" },
   "newsletter": { "endpoint": "https://formspree.io/f/your-id" },
   "contact": { "endpoint": "https://formspree.io/f/your-id" }

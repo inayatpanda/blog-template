@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import { getCollection } from 'astro:content';
 import { site } from '../lib/site';
+import { withBase } from '../lib/withBase';
 
 // Glob all images under _images/<slug>/*.{jpg,jpeg,png,webp}
 // eager: true → default export is the resolved URL string
@@ -70,7 +71,7 @@ const groups: PostGroup[] = posts
         groups.map((group) => (
           <div class="darkroom-group" data-reveal style="margin-bottom: 3rem;">
             <h2 style="font-size:1.2rem; margin-bottom:1rem; color:var(--ink-dim);">
-              <a href={`/blog/${group.slug}/`}
+              <a href={withBase(`/blog/${group.slug}/`)}
                  style="color:var(--ink); border-bottom:1px solid var(--line-strong); transition:border-color 0.2s;"
                  onmouseover="this.style.borderColor='var(--cyan)'"
                  onmouseout="this.style.borderColor='var(--line-strong)'">

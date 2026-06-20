@@ -10,6 +10,10 @@ export interface SiteConfig {
   socials: { linkedin?: string; instagram?: string; github?: string };
   newsletter: { endpoint: string };
   contact: { endpoint: string };
+  /** Header/footer nav. Optional: when absent, Base.astro falls back to its built-in nav.
+   *  `primary` items show in the mobile quick-access row; `themeLabel` items get renamed
+   *  per active site theme (e.g. Observatory → The Deep) by applyThemeTerms(). */
+  nav?: Array<{ href: string; label: string; primary?: boolean; themeLabel?: boolean }>;
 }
 
 export const site = siteData as SiteConfig;
