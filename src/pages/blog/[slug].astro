@@ -6,6 +6,7 @@ import { getCollection } from 'astro:content';
 import topics from '../../data/topics.json';
 import { site } from '../../lib/site';
 import { withBase } from '../../lib/withBase';
+import profile from '../../data/profile.json';
 import { seriesContextFor, seriesSlug } from '../../lib/series';
 
 export async function getStaticPaths() {
@@ -34,6 +35,25 @@ const series = seriesContextFor(post, all);
 const broadTags = new Set(topics.map((t) => t.tag));
 const topic = (post.data.tags || []).find((t) => broadTags.has(t)) || 'forge';
 
+// --- Reading templates ---------------------------------------------------
+// Six reading-surface treatments. Precedence: frontmatter `template` (a per-post
+// LOCK) > the reader's global `localStorage 'post-template'` pref > 'observatory'
+// (default dark house style). The server renders the *frontmatter or default*
+// value into data-template; an inline no-flash script swaps in the saved pref
+// when the post is NOT locked. The fixed nav stays dark (it lives outside the
+// post root, so the surface overrides never reach it).
+const TEMPLATES = ['observatory', 'parchment', 'manuscript', 'newsprint', 'slate', 'focus'] as const;
+const TEMPLATE_LABELS: Record<(typeof TEMPLATES)[number], string> = {
+  observatory: 'Observatory',
+  parchment: 'Parchment',
+  manuscript: 'Manuscript',
+  newsprint: 'Newsprint',
+  slate: 'Slate',
+  focus: 'Focus',
+};
+const lockedTemplate = post.data.template ?? null;       // frontmatter lock, or null
+const initialTemplate = lockedTemplate ?? 'observatory'; // SSR default before JS
+
 // --- SEO/AEO: canonical + share image + BlogPosting JSON-LD ---
 // These resolve against `site` (not base-aware), so base-prefix the paths so a
 // Pages sub-path deploy emits correct absolute URLs. No-op at base '/'.
@@ -56,6 +76,7 @@ const jsonLd = {
   author: {
     '@type': 'Person',
     name: site.name,
+    jobTitle: profile.role,
     url: `${site.url}/about/`,
   },
   publisher: {
@@ -79,44 +100,78 @@ const jsonLd = {
 >
   <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
 
-  <article style={`--post-accent:${post.data.accent}`} data-post-theme={post.data.theme}>
-    <header class="post-hero">
-      <div class="orbs">
-        <div class="orb orb-a" style="background:color-mix(in srgb, var(--post-accent) 18%, transparent); opacity:0.7"></div>
-        <div class="orb orb-b" style="opacity:0.4"></div>
-      </div>
-      <div class="grid-lines" aria-hidden="true"></div>
-      <div class="container post-hero-inner">
-        <a class="back-link" href={withBase('/writing/')} data-reveal>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M19 12H5m6 6-6-6 6-6"/></svg>
-          All writing
-        </a>
-        <div class="post-title-row">
-          <h1 class="display scrim-text" data-reveal data-delay="0.06">{post.data.title}</h1>
-          <GlyphBadge glyph={post.data.glyph} topic={topic} />
-        </div>
-        <div class="post-hero-meta" data-reveal data-delay="0.12">
-          <time datetime={post.data.date.toISOString()}>{fmt(post.data.date)}</time>
-          <span aria-hidden="true">·</span>
-          <span>{readMins} min read</span>
-          {post.data.tags.includes('interactive') && <span class="badge-interactive">Interactive</span>}
-          {post.data.tags.filter((t) => t !== 'interactive').map((t) => (
-            <a class="tag-chip" href={withBase(`/c/${t}/`)}>{t}</a>
-          ))}
-        </div>
-        {series && (
-          <a class="series-flag" href={withBase(`/series/${series.slug}/`)} data-reveal data-delay="0.16">
-            <span class="sf-part">Part {series.part} of {series.total}</span>
-            <span class="sf-dot" aria-hidden="true">·</span>
-            <span class="sf-name">{series.name}</span>
-          </a>
-        )}
-      </div>
-    </header>
-
+  <article
+    style={`--post-accent:${post.data.accent}`}
+    data-post-theme={post.data.theme}
+    data-template={initialTemplate}
+    data-template-locked={lockedTemplate ? '' : undefined}
+  >
+    {/* No-flash: apply the saved global template BEFORE paint, unless this post
+        locks one. As the first child it runs synchronously the moment <article>
+        is parsed, so the surface never flips after first render. The page-load
+        binder below re-syncs after view transitions + wires the switcher. */}
+    <script is:inline define:vars={{ locked: lockedTemplate }}>
+      (function () {
+        if (locked) return; // frontmatter lock wins — keep the SSR value
+        var ok = ['observatory', 'parchment', 'manuscript', 'newsprint', 'slate', 'focus'];
+        try {
+          var saved = localStorage.getItem('post-template');
+          var a = document.currentScript.closest('article[data-template]');
+          if (a && saved && ok.indexOf(saved) !== -1) a.setAttribute('data-template', saved);
+        } catch (e) {}
+      })();
+    </script>
     <div class="container article-grid">
       <TopicRail activeTags={post.data.tags} />
-      <div class="article-body" data-reveal data-delay="0.1">
+      <div class="article-col">
+        <header class="post-hero">
+          <div class="orbs">
+            <div class="orb orb-a" style="background:color-mix(in srgb, var(--post-accent) 18%, transparent); opacity:0.7"></div>
+            <div class="orb orb-b" style="opacity:0.4"></div>
+          </div>
+          <div class="grid-lines" aria-hidden="true"></div>
+          <div class="post-hero-inner">
+            <a class="back-link" href={withBase('/posts/')} data-reveal>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M19 12H5m6 6-6-6 6-6"/></svg>
+              All Posts
+            </a>
+            <div class="post-title-row">
+              <h1 class="display scrim-text" data-reveal data-delay="0.06">{post.data.title}</h1>
+              <GlyphBadge glyph={post.data.glyph} topic={topic} />
+            </div>
+            <div class="post-hero-meta" data-reveal data-delay="0.12">
+              <time datetime={post.data.date.toISOString()}>{fmt(post.data.date)}</time>
+              <span aria-hidden="true">·</span>
+              <span>{readMins} min read</span>
+              {post.data.tags.includes('interactive') && <span class="badge-interactive">Interactive</span>}
+              {post.data.tags.filter((t) => t !== 'interactive').map((t) => (
+                <a class="tag-chip" href={withBase(`/c/${t}/`)}>{t}</a>
+              ))}
+            </div>
+            {series && (
+              <a class="series-flag" href={withBase(`/series/${series.slug}/`)} data-reveal data-delay="0.16">
+                <span class="sf-part">Part {series.part} of {series.total}</span>
+                <span class="sf-dot" aria-hidden="true">·</span>
+                <span class="sf-name">{series.name}</span>
+              </a>
+            )}
+            <div class="template-control" data-reveal data-delay="0.2">
+              <label class="template-label" for="template-select">Template</label>
+              <select
+                id="template-select"
+                class="template-select"
+                aria-label="Reading template"
+                disabled={lockedTemplate ? true : undefined}
+              >
+                {TEMPLATES.map((t) => (
+                  <option value={t} selected={t === initialTemplate}>{TEMPLATE_LABELS[t]}</option>
+                ))}
+              </select>
+              {lockedTemplate && <span class="template-lock" title="This post sets its own template">locked</span>}
+            </div>
+          </div>
+        </header>
+        <div class="article-body" data-reveal data-delay="0.1">
         <Content />
         {series && (
           <aside class="series-contents" aria-label={`${series.name} — series contents`}>
@@ -136,6 +191,7 @@ const jsonLd = {
             </ol>
           </aside>
         )}
+        </div>
       </div>
     </div>
 
@@ -175,21 +231,91 @@ const jsonLd = {
           <p>Thoughts, corrections, disagreements — all welcome.</p>
           <div class="post-cta-btns">
             <a class="btn btn-primary" href={withBase('/contact/')}>Get in touch</a>
-            <a class="btn btn-ghost" href={withBase('/writing/')}>More writing</a>
+            <a class="btn btn-ghost" href={withBase('/posts/')}>More writing</a>
           </div>
         </div>
       </div>
     </footer>
   </article>
+
+  <script>
+    // Reading-template switcher. Applies the chosen key via data-template on the
+    // <article> root (CSS in global.css restyles only the reading surface). The
+    // choice is a GLOBAL preference (localStorage 'post-template') so it follows
+    // the reader across every post — never in the URL. A post that LOCKS a template
+    // (data-template-locked, set from frontmatter) ignores + disables the switcher.
+    function initPostTemplate() {
+      const article = document.querySelector('article[data-template]');
+      const sel = document.getElementById('template-select') as HTMLSelectElement | null;
+      if (!article || !sel || sel.dataset.bound) return;
+      sel.dataset.bound = '1';
+      const KEYS = ['observatory', 'parchment', 'manuscript', 'newsprint', 'slate', 'focus'];
+      const locked = article.hasAttribute('data-template-locked');
+
+      if (locked) {
+        // Frontmatter forces this template — reflect it, lock the control, stop.
+        sel.value = article.getAttribute('data-template') || 'observatory';
+        sel.disabled = true;
+        return;
+      }
+
+      const apply = (key: string) => {
+        const k = KEYS.includes(key) ? key : 'observatory';
+        article.setAttribute('data-template', k);
+        sel.value = k;
+        try { localStorage.setItem('post-template', k); } catch (e) {}
+      };
+      sel.addEventListener('change', () => apply(sel.value));
+      // Sync to the saved pref on load (covers view-transition navigations where the
+      // inline no-flash script of the new page already ran, but keeps the two in step).
+      let saved = 'observatory';
+      try { saved = localStorage.getItem('post-template') || 'observatory'; } catch (e) {}
+      apply(saved);
+    }
+    document.addEventListener('astro:page-load', initPostTemplate);
+  </script>
 </Base>
 
 <style>
+  /* Hero now lives INSIDE the content column (right of the full-height rail), so the
+     rail spans hero+article from the very top. Decorative orbs/grid-lines bleed within
+     the column; a hairline divides hero from the article body. */
   .post-hero {
     position: relative; overflow: hidden;
-    padding-block: clamp(1.9rem, 4.5vw, 3.2rem);
+    margin-bottom: clamp(1.4rem, 3vw, 2.2rem);
+    padding-bottom: clamp(1.2rem, 3vw, 1.8rem);
     border-bottom: 1px solid var(--line);
   }
   .post-hero-inner { position: relative; z-index: 1; max-width: 860px; }
+
+  /* Reading-template switcher — styled like the archive's LAYOUT control. Sits in
+     the hero, right-aligned. Uses the surface vars so it adapts to each template
+     (dark-on-light on parchment/newsprint, light-on-dark elsewhere). */
+  .template-control {
+    display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end;
+    margin-top: 1.1rem;
+  }
+  .template-label {
+    font-family: var(--font-display); font-size: 0.72rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-faint);
+  }
+  .template-select {
+    font-family: var(--font-display); font-size: 0.8rem; color: var(--ink);
+    padding: 0.34em 2em 0.34em 0.8em; border: 1px solid var(--line-strong);
+    border-radius: 99px; background-color: rgba(140, 160, 200, 0.06);
+    cursor: pointer; -webkit-tap-highlight-color: transparent; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2322d3ee' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 0.7em center;
+    transition: color 0.2s, border-color 0.2s, background-color 0.2s;
+  }
+  .template-select:hover { border-color: color-mix(in srgb, var(--cyan) 45%, var(--line-strong)); }
+  .template-select:disabled { opacity: 0.65; cursor: default; }
+  .template-select option { background: var(--bg-2); color: var(--ink); }
+  .template-lock {
+    font-family: var(--font-display); font-size: 0.66rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-faint);
+    border: 1px solid var(--line-strong); border-radius: 99px; padding: 0.2em 0.6em;
+  }
 
   /* Title + glyph badge row */
   .post-title-row {
@@ -245,19 +371,23 @@ const jsonLd = {
   .sf-dot { color: var(--ink-faint); }
   .sf-name { color: var(--ink); }
 
-  article > .container { padding-block: clamp(1.6rem, 3.5vw, 2.6rem); }
+  /* The grid itself owns no top padding — the rail (sticky, top:var(--header-h),
+     full-height) and the content column both start flush at the very top. */
+  article > .container.article-grid { padding-block: 0 clamp(1.6rem, 3.5vw, 2.6rem); }
   .article-grid {
     display: grid;
-    grid-template-columns: 240px minmax(0, 1fr);
-    gap: 3rem;
+    grid-template-columns: 230px minmax(0, 1fr);
+    gap: 1.8rem;
     align-items: start;
   }
+  /* content column holds the hero + article body; the rail is its full-height sibling */
+  .article-col { min-width: 0; padding-top: clamp(1.6rem, 3.5vw, 2.6rem); }
   .article-grid .article-body { margin-inline: 0; }
   @media (max-width: 880px) {
     .article-grid { grid-template-columns: minmax(0, 1fr); gap: 1.6rem; }
     /* write-up first; the collapsible Topics accordion sits AFTER the article.
        .topic-rail is a child component (own scope) → :global to reach it. */
-    .article-grid > .article-body { order: 1; }
+    .article-grid > .article-col { order: 1; }
     .article-grid > :global(.topic-rail) { order: 2; }
   }
 

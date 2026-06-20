@@ -1,0 +1,478 @@
+---
+import Base from '../../layouts/Base.astro';
+import PostCard from '../../components/PostCard.astro';
+import topics from '../../data/topics.json';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('blog', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+const readMins = (entry: any) => Math.max(1, Math.round((entry.body || '').split(/\s+/).filter(Boolean).length / 200));
+const tagCount = (tag: string) => posts.filter((p) => p.data.tags.includes(tag)).length;
+const visibleTopics = topics
+  .map((t) => ({
+    ...t,
+    count: tagCount(t.tag),
+    sub: (t.sub || []).map((s) => ({ ...s, count: tagCount(s.tag) })).filter((s) => s.count > 0),
+  }))
+  .filter((t) => t.count > 0 || t.sub.length > 0);
+---
+<Base title="Posts" description="Every post, newest first — browse by topic." progress>
+  <section class="section writing-archive">
+    <div class="orbs"><div class="orb orb-b" style="opacity:0.3"></div></div>
+    <div class="container">
+
+      <div class="writing-grid">
+        <!-- side navigation: topic rail — full-height desktop sidebar (scrolls on its
+             own), mobile collapsible accordion -->
+        <aside class="topic-rail">
+          <details class="topic-acc">
+            <summary class="rail-title">Topics <span class="acc-caret" aria-hidden="true">▾</span></summary>
+            <ul class="topic-list" id="topic-list">
+              <li>
+                <button class="topic-btn active" data-filter="*">
+                  All posts <span class="count">{posts.length}</span>
+                </button>
+              </li>
+              {visibleTopics.map((t) => (
+                <li>
+                  {t.sub.length > 0 ? (
+                    <details class="topic-group">
+                      <summary class="topic-btn" data-filter={t.tag}>
+                        <span class="grp-caret" aria-hidden="true">▾</span>
+                        <span class="topic-name">{t.name}</span>
+                        {t.subtitle && <span class="topic-subtitle">{t.subtitle}</span>}
+                        <span class="count">{t.count}</span>
+                      </summary>
+                      <ul class="topic-sub">
+                        {t.sub.map((s) => (
+                          <li>
+                            <button class="topic-btn" data-filter={s.tag}>
+                              {s.name} <span class="count">{s.count}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : (
+                    <button class="topic-btn" data-filter={t.tag}>
+                      <span class="topic-name">{t.name}</span>
+                      {t.subtitle && <span class="topic-subtitle">{t.subtitle}</span>}
+                      <span class="count">{t.count}</span>
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </details>
+        </aside>
+
+        <div class="post-col">
+          <header class="archive-head" data-reveal>
+            <h1 class="display">Posts</h1>
+            <p class="lead">My blog.</p>
+          </header>
+          <!-- mobile-only topic bar (top) — tap a topic to filter; topics with subtopics reveal them -->
+          <nav class="wt-bar" aria-label="Browse by topic">
+            <div class="wt-row">
+              <button class="wt-chip topic-btn active" data-filter="*">All</button>
+              {visibleTopics.map((t) => (
+                <button class={`wt-chip topic-btn${t.sub.length ? ' has-sub' : ''}`} data-filter={t.tag} data-topic={t.tag}>{t.name}{t.sub.length ? <span class="wt-car" aria-hidden="true">▾</span> : null}</button>
+              ))}
+            </div>
+            {visibleTopics.filter((t) => t.sub.length > 0).map((t) => (
+              <div class="wt-subs" data-subs={t.tag} hidden>
+                {t.sub.map((s) => <button class="wt-chip wt-sub topic-btn" data-filter={s.tag}>{s.name} <span class="count">{s.count}</span></button>)}
+              </div>
+            ))}
+          </nav>
+          <div class="layout-control">
+            <label class="layout-label" for="layout-select">Layout</label>
+            <select id="layout-select" class="layout-select" aria-label="Posts layout">
+              <option value="reader">Reader</option>
+              <option value="index">Compact Index</option>
+              <option value="newspaper">Newspaper</option>
+              <option value="magazine">Magazine</option>
+              <option value="timeline">Timeline</option>
+              <option value="cards">Cards</option>
+              <option value="terminal">Terminal</option>
+              <option value="headlines">Headlines</option>
+            </select>
+          </div>
+          <div id="filterBanner" class="filter-banner" hidden></div>
+          <div class="post-list layout-reader" id="post-list">
+            {posts.map((p) => (
+              <PostCard post={p} readMins={readMins(p)} />
+            ))}
+            <p class="no-posts" id="no-posts" hidden>Nothing here yet — pick another topic.</p>
+          </div>
+          <!-- mobile-only topic bar (bottom) -->
+          <nav class="wt-bar wt-bar-bottom" aria-label="Browse by topic">
+            <div class="wt-row">
+              <button class="wt-chip topic-btn active" data-filter="*">All</button>
+              {visibleTopics.map((t) => (
+                <button class={`wt-chip topic-btn${t.sub.length ? ' has-sub' : ''}`} data-filter={t.tag} data-topic={t.tag}>{t.name}{t.sub.length ? <span class="wt-car" aria-hidden="true">▾</span> : null}</button>
+              ))}
+            </div>
+            {visibleTopics.filter((t) => t.sub.length > 0).map((t) => (
+              <div class="wt-subs" data-subs={t.tag} hidden>
+                {t.sub.map((s) => <button class="wt-chip wt-sub topic-btn" data-filter={s.tag}>{s.name} <span class="count">{s.count}</span></button>)}
+              </div>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</Base>
+
+<style>
+  .writing-archive { position: relative; }
+  .writing-archive .container { position: relative; z-index: 1; }
+  .archive-head { margin-bottom: 0.45rem; }
+  .archive-head .display { font-size: clamp(1.2rem, 3.4vw, 1.7rem); }
+  .archive-head .lead { margin-top: 0.25rem; max-width: 54ch; font-size: 0.95rem; }
+
+  /* mobile topic bars (reader nav) — hidden on desktop, where the sidebar handles it */
+  .wt-bar { display: none; }
+  @media (max-width: 880px) {
+    .topic-rail { display: none; }                 /* sidebar → replaced by the bars on mobile */
+    .wt-bar { display: block; margin-bottom: 0.9rem; }
+    .wt-bar-bottom { margin: 1.4rem 0 0; }
+    .wt-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    /* override .topic-btn (width:100% / space-between) → compact auto-width pills */
+    .wt-bar .wt-chip {
+      width: auto; flex: 0 0 auto; display: inline-flex; align-items: center;
+      justify-content: center; gap: 0.35em;
+      font-family: var(--font-display); font-size: 0.82rem; color: var(--ink-dim);
+      border: 1px solid var(--line-strong); border-radius: 99px; padding: 0.42em 0.9em;
+      background: rgba(140, 160, 200, 0.05); cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .wt-bar .wt-chip.active { color: var(--bg-0); background: var(--cyan); border-color: var(--cyan); font-weight: 700; }
+    .wt-car { font-size: 0.7em; opacity: 0.7; }
+    .wt-subs { display: none; }
+    .wt-subs:not([hidden]) { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.55rem 0 0.2rem; padding-left: 0.15rem; }
+    .wt-bar .wt-sub { font-size: 0.78rem; background: rgba(34, 211, 238, 0.07); border-color: rgba(34, 211, 238, 0.28); color: var(--cyan); }
+    .wt-bar .wt-sub .count { font-size: 0.72em; opacity: 0.75; border-color: rgba(34,211,238,0.3); }
+  }
+
+  .writing-grid {
+    display: grid; grid-template-columns: 230px 1fr; gap: 1.8rem; align-items: start;
+  }
+  @media (max-width: 880px) { .writing-grid { grid-template-columns: minmax(0, 1fr); gap: 1.6rem; } }
+
+  .post-list { display: grid; gap: 0.8rem; }
+  /* .post-card is a child component (own scope) → :global so the filter can hide it.
+     !important so it wins over any layout that sets `display` on the card. */
+  :global(.post-card.hidden-by-filter) { display: none !important; }
+
+  /* layout control (replaces the old density toggle) */
+  .layout-control {
+    display: flex; align-items: center; gap: 0.5rem;
+    justify-content: flex-end; margin-bottom: 0.7rem;
+  }
+  .layout-label {
+    font-family: var(--font-display); font-size: 0.74rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-faint);
+  }
+  .layout-select {
+    font-family: var(--font-display); font-size: 0.8rem; color: var(--ink);
+    padding: 0.34em 2em 0.34em 0.8em; border: 1px solid var(--line-strong);
+    border-radius: 99px; background: rgba(140, 160, 200, 0.05);
+    cursor: pointer; -webkit-tap-highlight-color: transparent; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2322d3ee' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 0.7em center;
+    transition: color 0.2s, border-color 0.2s, background-color 0.2s;
+  }
+  .layout-select:hover { border-color: rgba(34, 211, 238, 0.4); background-color: rgba(34, 211, 238, 0.06); }
+  .layout-select option { background: var(--bg-2); color: var(--ink); }
+
+  .filter-banner {
+    display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+    margin-bottom: 0.9rem; padding: 0.6em 0.9em;
+    border: 1px solid rgba(34, 211, 238, 0.3); border-radius: 12px;
+    background: rgba(34, 211, 238, 0.07);
+    font-family: var(--font-display); font-size: 0.92rem; color: var(--ink-dim);
+  }
+  .filter-banner b { color: var(--ink); }
+  .fb-clear {
+    margin-left: auto; font-size: 0.8rem; color: var(--cyan);
+    background: transparent; border: 1px solid rgba(34, 211, 238, 0.4);
+    border-radius: 99px; padding: 0.25em 0.85em; cursor: pointer;
+  }
+  .fb-clear:hover { background: rgba(34, 211, 238, 0.12); }
+  .no-posts { color: var(--ink-faint); padding: 2rem 0; }
+  .topic-subtitle { color: var(--muted, #5b6b80); font-size: .78em; margin-left: .45em; letter-spacing: .04em; }
+
+  /* ============================================================
+     Layout switcher — 8 pure-CSS treatments over the same PostCard
+     markup (.post-meta → <h3> → <p>, accent via --card-accent).
+     The topic filter hides cards via .hidden-by-filter (display:none
+     !important, declared above) in EVERY layout. Dark, British,
+     accent-aware. .post-card is a child component → :global to reach it.
+     ============================================================ */
+
+  /* ---- reader (default): today's card, tightened ---- */
+  .post-list.layout-reader { gap: 0.7rem; }
+  .post-list.layout-reader :global(.post-card) { padding: 0.85rem 1.1rem 0.85rem 1.3rem; }
+  .post-list.layout-reader :global(.post-card h3) { font-size: 1.05rem; margin-top: 0.25rem; }
+  .post-list.layout-reader :global(.post-card p) { margin-top: 0.25rem; -webkit-line-clamp: 2; }
+
+  /* ---- compact index: one-line rows, hairline rules, no description ---- */
+  .post-list.layout-index { display: block; gap: 0; }
+  .post-list.layout-index :global(.post-card) {
+    display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 0.4rem 1rem;
+    padding: 0.55rem 0.4rem 0.55rem 0.9rem; border: none; border-radius: 0;
+    border-bottom: 1px solid var(--line); background: none; transform: none;
+  }
+  .post-list.layout-index :global(.post-card:hover) { box-shadow: none; background: color-mix(in srgb, var(--card-accent, var(--cyan)) 8%, transparent); }
+  /* per-post accent left-bar — bold + glowing so each row reads its own colour */
+  .post-list.layout-index :global(.post-card::before) { width: 3px; box-shadow: 0 0 10px var(--card-accent, var(--teal)); opacity: 1; }
+  .post-list.layout-index :global(.post-card:hover::before) { width: 4px; }
+  .post-list.layout-index :global(.post-card h3) {
+    grid-column: 1; order: 1; margin: 0; font-size: 0.98rem; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .post-list.layout-index :global(.post-card:hover h3) { color: color-mix(in srgb, var(--card-accent, var(--cyan)) 75%, var(--ink)); }
+  .post-list.layout-index :global(.post-card p) { display: none; }
+  .post-list.layout-index :global(.post-meta) { grid-column: 2; order: 2; justify-content: flex-end; font-size: 0.72rem; flex-wrap: nowrap; }
+  .post-list.layout-index :global(.tag-chip) { display: none; }
+  .post-list.layout-index :global(.post-meta .tag-chip:first-of-type) { display: inline-flex; }
+
+  /* ---- newspaper: CSS multi-column, serif headlines + 1-line dek, column rules ---- */
+  .post-list.layout-newspaper { display: block; columns: 2; column-gap: 2rem; column-rule: 1px solid var(--line); }
+  @media (min-width: 1100px) { .post-list.layout-newspaper { columns: 3; } }
+  .post-list.layout-newspaper :global(.post-card) {
+    display: block; break-inside: avoid; margin: 0 0 1.1rem; padding: 0.55rem 0 0.9rem;
+    border: none; border-bottom: 1px solid var(--line); border-radius: 0;
+    /* per-post accent rule across the top of each story */
+    border-top: 2px solid color-mix(in srgb, var(--card-accent, var(--teal)) 70%, transparent);
+    background: none; transform: none; overflow: visible;
+  }
+  .post-list.layout-newspaper :global(.post-card:hover) { box-shadow: none; }
+  .post-list.layout-newspaper :global(.post-card::before) { display: none; }
+  /* coloured serif headline — tinted toward the post's own accent */
+  .post-list.layout-newspaper :global(.post-card h3) {
+    font-family: Georgia, 'Times New Roman', serif; font-size: 1.18rem; line-height: 1.2;
+    margin-top: 0.3rem; color: color-mix(in srgb, var(--card-accent, var(--cyan)) 42%, var(--ink));
+  }
+  .post-list.layout-newspaper :global(.post-card:hover h3) { color: color-mix(in srgb, var(--card-accent, var(--cyan)) 80%, var(--ink)); }
+  .post-list.layout-newspaper :global(.post-card p) { -webkit-line-clamp: 1; font-size: 0.85rem; margin-top: 0.2rem; }
+  .post-list.layout-newspaper :global(.post-meta) { font-size: 0.7rem; }
+  .post-list.layout-newspaper :global(.tag-chip) { display: none; }
+
+  /* ---- magazine: first card a wide accent hero, the rest a denser grid ---- */
+  .post-list.layout-magazine {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem;
+  }
+  .post-list.layout-magazine :global(.post-card) { padding: 0.95rem 1.1rem 0.95rem 1.3rem; }
+  .post-list.layout-magazine :global(.post-card:first-of-type) {
+    grid-column: 1 / -1; padding: 1.5rem 1.6rem 1.5rem 1.8rem;
+    background:
+      linear-gradient(120deg, color-mix(in srgb, var(--card-accent, var(--teal)) 22%, transparent), transparent 60%),
+      linear-gradient(160deg, var(--bg-2), var(--bg-1));
+    border-color: color-mix(in srgb, var(--card-accent, var(--teal)) 35%, var(--line));
+  }
+  .post-list.layout-magazine :global(.post-card:first-of-type h3) { font-size: clamp(1.4rem, 3vw, 2rem); margin-top: 0.5rem; }
+  .post-list.layout-magazine :global(.post-card:first-of-type p) { -webkit-line-clamp: 3; font-size: 0.96rem; max-width: 60ch; }
+  .post-list.layout-magazine :global(.post-card:not(:first-of-type) h3) { font-size: 1.02rem; }
+  .post-list.layout-magazine :global(.post-card:not(:first-of-type) p) { -webkit-line-clamp: 2; font-size: 0.85rem; }
+  .post-list.layout-magazine :global(.post-card:not(:first-of-type) .tag-chip) { display: none; }
+
+  /* ---- timeline: left date column + vertical spine, tight rows ---- */
+  .post-list.layout-timeline { display: block; position: relative; padding-left: 0; }
+  .post-list.layout-timeline :global(.post-card) {
+    display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 0.1rem 0;
+    position: relative; margin: 0; padding: 0.7rem 0.4rem 0.9rem 0; margin-left: 7.5rem;
+    border: none; border-left: 2px solid var(--line); border-radius: 0;
+    background: none; transform: none; overflow: visible;
+  }
+  .post-list.layout-timeline :global(.post-card::before) {
+    content: ""; position: absolute; left: -8px; top: 0.9rem; width: 13px; height: 13px;
+    border-radius: 50%; background: var(--card-accent, var(--teal));
+    box-shadow: 0 0 16px var(--card-accent, var(--teal)), 0 0 0 3px color-mix(in srgb, var(--card-accent, var(--teal)) 22%, transparent);
+    opacity: 1;
+  }
+  .post-list.layout-timeline :global(.post-card:hover) { box-shadow: none; border-left-color: color-mix(in srgb, var(--card-accent, var(--cyan)) 50%, var(--line)); }
+  .post-list.layout-timeline :global(.post-card:hover::before) { width: 14px; height: 14px; }
+  /* prominent date sits in the gutter, left of the spine */
+  .post-list.layout-timeline :global(.post-meta) {
+    position: absolute; left: -7.5rem; top: 0.55rem; width: 6.6rem; padding-left: 0.2rem;
+    flex-direction: column; align-items: flex-start; gap: 0.25rem; font-size: 0.72rem; text-align: left;
+  }
+  .post-list.layout-timeline :global(.post-meta time) {
+    font-size: 0.82rem; font-weight: 700; color: var(--ink); letter-spacing: 0;
+  }
+  .post-list.layout-timeline :global(.post-card h3) { margin-top: 0.4rem; font-size: 1.02rem; padding-left: 1.4rem; }
+  .post-list.layout-timeline :global(.post-card p) { -webkit-line-clamp: 1; font-size: 0.85rem; padding-left: 1.4rem; margin-top: 0.2rem; }
+  .post-list.layout-timeline :global(.tag-chip) { display: none; }
+  @media (max-width: 560px) {
+    .post-list.layout-timeline :global(.post-card) { grid-template-columns: 1fr; margin-left: 1.2rem; }
+    .post-list.layout-timeline :global(.post-meta) { position: static; width: auto; flex-direction: row; align-items: center; padding-left: 1.4rem; }
+  }
+
+  /* ---- cards: uniform accent-bordered tile grid ---- */
+  .post-list.layout-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+  .post-list.layout-cards :global(.post-card) {
+    padding: 1.1rem 1.2rem; border-color: color-mix(in srgb, var(--card-accent, var(--teal)) 38%, var(--line));
+  }
+  .post-list.layout-cards :global(.post-card::before) { width: 0; }
+  .post-list.layout-cards :global(.post-card:hover) { border-color: color-mix(in srgb, var(--card-accent, var(--teal)) 60%, transparent); }
+  .post-list.layout-cards :global(.post-card h3) { font-size: 1.05rem; }
+  .post-list.layout-cards :global(.post-card p) { -webkit-line-clamp: 3; font-size: 0.85rem; }
+  .post-list.layout-cards :global(.tag-chip) { display: none; }
+
+  /* ---- terminal: monospace, ultra-dense rows ---- */
+  .post-list.layout-terminal {
+    display: block; gap: 0; padding: 0.5rem 0.2rem;
+    border: 1px solid var(--line); border-radius: 10px; background: rgba(4, 6, 12, 0.5);
+  }
+  .post-list.layout-terminal :global(.post-card) {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 0.3rem 0.9rem;
+    padding: 0.28rem 0.7rem; border: none; border-radius: 0; background: none; transform: none;
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  }
+  .post-list.layout-terminal :global(.post-card::before) { display: none; }
+  .post-list.layout-terminal :global(.post-card:hover) { box-shadow: none; background: rgba(34, 211, 238, 0.07); }
+  .post-list.layout-terminal :global(.post-card h3) {
+    grid-column: 2; order: 2; margin: 0; font-size: 0.85rem; font-weight: 400; font-family: inherit;
+    /* title carries the post's own accent — each command its own colour */
+    color: color-mix(in srgb, var(--card-accent, var(--cyan)) 55%, var(--ink-dim));
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .post-list.layout-terminal :global(.post-card:hover h3) { color: color-mix(in srgb, var(--card-accent, var(--cyan)) 85%, var(--ink)); }
+  .post-list.layout-terminal :global(.post-card p) { display: none; }
+  .post-list.layout-terminal :global(.post-meta) {
+    grid-column: 1; order: 1; flex-wrap: nowrap; gap: 0.5rem; font-family: inherit; font-size: 0.74rem; letter-spacing: 0;
+  }
+  .post-list.layout-terminal :global(.post-meta time) { color: var(--ink-faint); }
+  /* the shell prompt glows in the post's accent */
+  .post-list.layout-terminal :global(.post-meta time::before) { content: "$ "; color: var(--card-accent, var(--teal)); font-weight: 700; }
+  .post-list.layout-terminal :global(.tag-chip) { display: none; }
+  .post-list.layout-terminal :global(.badge-interactive) { grid-column: 3; order: 3; font-size: 0.62rem; }
+
+  /* ---- headlines: titles + dates only, maximal density ---- */
+  .post-list.layout-headlines { display: block; gap: 0; }
+  .post-list.layout-headlines :global(.post-card) {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+    padding: 0.4rem 0.4rem 0.4rem 0.9rem; border: none; border-radius: 0;
+    background: none; transform: none;
+  }
+  .post-list.layout-headlines :global(.post-card:hover) { box-shadow: none; background: color-mix(in srgb, var(--card-accent, var(--cyan)) 8%, transparent); }
+  /* per-post accent marker bar down the left of each headline */
+  .post-list.layout-headlines :global(.post-card::before) { width: 3px; box-shadow: 0 0 8px var(--card-accent, var(--teal)); opacity: 0.95; }
+  .post-list.layout-headlines :global(.post-card:hover::before) { width: 4px; }
+  .post-list.layout-headlines :global(.post-card h3) {
+    order: 1; margin: 0; font-size: 1rem; font-weight: 600; color: var(--ink-dim);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .post-list.layout-headlines :global(.post-card:hover h3) { color: color-mix(in srgb, var(--card-accent, var(--cyan)) 70%, var(--ink)); }
+  .post-list.layout-headlines :global(.post-card p) { display: none; }
+  .post-list.layout-headlines :global(.post-meta) { order: 2; flex: 0 0 auto; flex-wrap: nowrap; font-size: 0.72rem; }
+  .post-list.layout-headlines :global(.post-meta .pc-read),
+  .post-list.layout-headlines :global(.tag-chip),
+  .post-list.layout-headlines :global(.badge-interactive) { display: none; }
+
+  /* the layouts above lean dense — soften them on narrow screens where the
+     mobile bars already trade vertical room. Multi-column/timeline collapse. */
+  @media (max-width: 880px) {
+    .post-list.layout-newspaper { columns: 1; }
+  }
+</style>
+
+<script>
+  function initArchiveFilter() {
+    const postList = document.getElementById('post-list');
+    if (!postList || postList.dataset.fbound) return;
+    postList.dataset.fbound = '1';
+    const list = document.getElementById('topic-list');
+
+    // every topic control drives the filter: desktop sidebar + both mobile bars + subtopics
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('.topic-btn'));
+    const cards = Array.from(postList.querySelectorAll<HTMLElement>('.post-card'));
+    const empty = document.getElementById('no-posts');
+
+    const banner = document.getElementById('filterBanner');
+    function apply(tag: string) {
+      buttons.forEach((b) => b.classList.toggle('active', b.dataset.filter === tag));
+      let shown = 0;
+      cards.forEach((c) => {
+        const tags = (c.dataset.tags || '').split(',');
+        const show = tag === '*' || tags.includes(tag);
+        c.classList.toggle('hidden-by-filter', !show);
+        if (show) shown++;
+      });
+      if (empty) empty.hidden = shown > 0;
+      history.replaceState(null, '', tag === '*' ? location.pathname : `#${tag}`);
+      // active-filter banner — makes the filtered set unmistakable
+      if (banner) {
+        if (tag === '*') { banner.hidden = true; banner.innerHTML = ''; }
+        else {
+          const ab = buttons.find((b) => b.dataset.filter === tag);
+          const nm = ab?.querySelector('.topic-name')?.textContent?.trim()
+            || ab?.textContent?.replace(/\s*\d+\s*$/, '').trim() || tag;
+          banner.hidden = false;
+          banner.innerHTML = `Showing <b>${nm}</b> · ${shown} post${shown === 1 ? '' : 's'}<button class="fb-clear" type="button">Show all</button>`;
+        }
+      }
+    }
+    banner?.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('.fb-clear')) apply('*');
+    });
+
+    const acc = list ? (list.closest('details.topic-acc') as HTMLDetailsElement | null) : null;
+    const isMobile = () => window.matchMedia('(max-width: 880px)').matches;
+    buttons.forEach((b) => b.addEventListener('click', () => {
+      apply(b.dataset.filter || '*');
+
+      // Mobile bar: tapping a top-level topic chip reveals its subtopics (within that bar);
+      // a topic with subs stays put so you can drill in, anything else is a final choice.
+      const isTopChip = b.classList.contains('wt-chip') && !b.classList.contains('wt-sub');
+      const revealedSubs = isTopChip && b.classList.contains('has-sub');
+      if (isTopChip) {
+        const bar = b.closest('.wt-bar');
+        bar?.querySelectorAll<HTMLElement>('.wt-subs').forEach((sub) => {
+          sub.hidden = !(revealedSubs && sub.dataset.subs === b.dataset.topic);
+        });
+      }
+
+      const isGroupSummary = b.tagName === 'SUMMARY';
+      if (isMobile() && !isGroupSummary && !revealedSubs) {
+        if (acc) acc.open = false;
+        const col = postList.closest('.post-col') as HTMLElement | null;
+        if (col) {
+          const y = col.getBoundingClientRect().top + window.scrollY - 70;
+          window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+        }
+      }
+    }));
+
+    const hash = location.hash.slice(1);
+    if (hash && buttons.some((b) => b.dataset.filter === hash)) apply(hash);
+  }
+
+  // Layout switcher: 8 pure-CSS treatments over the same PostCard markup. The chosen
+  // key is a saved preference (localStorage) — never in the URL, so /posts/ stays
+  // shareable. Applies `layout-<key>` to #post-list; the topic filter is layout-agnostic.
+  const LAYOUTS = ['reader', 'index', 'newspaper', 'magazine', 'timeline', 'cards', 'terminal', 'headlines'];
+  function initLayout() {
+    const sel = document.getElementById('layout-select') as HTMLSelectElement | null;
+    const list = document.getElementById('post-list');
+    if (!sel || !list || sel.dataset.bound) return;
+    sel.dataset.bound = '1';
+    const set = (key: string) => {
+      const k = LAYOUTS.includes(key) ? key : 'reader';
+      LAYOUTS.forEach((l) => list.classList.toggle(`layout-${l}`, l === k));
+      sel.value = k;
+      try { localStorage.setItem('writing-layout', k); } catch (e) {}
+    };
+    sel.addEventListener('change', () => set(sel.value));
+    let saved = 'reader';
+    try { saved = localStorage.getItem('writing-layout') || 'reader'; } catch (e) {}
+    set(saved);
+  }
+
+  document.addEventListener('astro:page-load', initArchiveFilter);
+  document.addEventListener('astro:page-load', initLayout);
+</script>

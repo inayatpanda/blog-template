@@ -24,7 +24,9 @@ const read = (p) => readFileSync(p, 'utf8');
 let home, writing, rss;
 try {
   home = read('dist/index.html');
-  writing = read('dist/writing/index.html');
+  // The archive lives at /posts/ now (/writing/ is a 301 redirect stub with no
+  // real <title>), so the title-suffix/name assertions read the posts page.
+  writing = read('dist/posts/index.html');
   rss = read('dist/rss.xml');
 } catch (e) { fail(`could not read dist output: ${e.message}`); }
 
@@ -35,8 +37,8 @@ const checks = [
   [home.includes('ZZNEWS'), 'newsletter endpoint = site.newsletter'],
   [writing.includes('— ZZNAME'), 'page title suffix = site.name'],
   [rss.includes('ZZMAST') || rss.includes('ZZNAME'), 'rss title from site'],
-  [!home.includes('Your Blog Name'), 'no hardcoded masthead in home'],
-  [!writing.includes('Your Name'), 'no hardcoded name in page title'],
+  [!home.includes('Bone Appetite'), 'no hardcoded masthead in home'],
+  [!writing.includes('Inayat Panda'), 'no hardcoded name in page title'],
 ];
 const bad = checks.filter(([ok]) => !ok).map(([, m]) => m);
 restore();

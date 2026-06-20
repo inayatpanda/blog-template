@@ -46,7 +46,7 @@ const ogImageUrl = new URL(withBase(ogImage), Astro.site).href;
 const NAV_FALLBACK = [
   { href: '/', label: 'Home', primary: true },
   { href: '/observatory/', label: 'Observatory', primary: true, themeLabel: true },
-  { href: '/writing/', label: 'Writing', primary: true },
+  { href: '/posts/', label: 'Posts', primary: true },
   { href: '/darkroom/', label: 'Darkroom', primary: true },
   { href: '/apps/', label: 'Apps' },
   { href: '/about/', label: 'About' },
@@ -56,8 +56,8 @@ const nav = (site.nav && site.nav.length ? site.nav : NAV_FALLBACK);
 const path = Astro.url.pathname;
 const isCurrent = (href: string) => {
   if (href === '/') return path === '/';
-  // "Writing" owns the archive, individual posts and constellation pages.
-  if (href === '/writing/') return path.startsWith('/writing') || path.startsWith('/blog') || path.startsWith('/c/');
+  // "Posts" owns the archive, individual posts and constellation pages.
+  if (href === '/posts/') return path.startsWith('/posts') || path.startsWith('/writing') || path.startsWith('/blog') || path.startsWith('/c/');
   return path.startsWith(href);
 };
 ---
@@ -162,7 +162,7 @@ const isCurrent = (href: string) => {
         </div>
         <nav aria-label="Footer">
           <a href={withBase('/')}>Home</a>
-          <a href={withBase('/writing/')}>Posts</a>
+          <a href={withBase('/posts/')}>Posts</a>
           <a href={withBase('/observatory/')}>Observatory</a>
           <a href={withBase('/apps/')}>Apps</a>
           <a href={withBase('/about/')}>About</a>

@@ -39,7 +39,7 @@
   --glow-violet: 0 0 24px rgba(129, 140, 248, 0.35);
 
   --radius: 16px;
-  --header-h: 72px;
+  --header-h: 56px;
 }
 
 /* ---------- reset ---------- */
@@ -73,7 +73,7 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 
 /* ---------- layout ---------- */
 .container { width: min(1180px, 100% - 2.5rem); margin-inline: auto; }
-.section { padding-block: clamp(2.6rem, 6vw, 4.4rem); position: relative; }
+.section { padding-block: clamp(1.2rem, 3vw, 2.2rem); position: relative; }
 
 /* ---------- typography ---------- */
 .display {
@@ -97,8 +97,8 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 
 h1, h2, h3, h4 { font-family: var(--font-display); line-height: 1.15; letter-spacing: -0.01em; }
 
-.section-title { font-size: clamp(1.7rem, 3.6vw, 2.4rem); font-weight: 700; }
-.section-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.9rem 1.4rem; margin-bottom: 1.5rem; }
+.section-title { font-size: clamp(1.45rem, 3vw, 2.05rem); font-weight: 700; }
+.section-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.9rem 1.4rem; margin-bottom: 0.9rem; }
 .section-head .rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--line-strong), transparent); min-width: 60px; }
 
 /* crisp headlines over busy/animated backgrounds */
@@ -336,8 +336,14 @@ main { padding-top: var(--header-h); }
 .post-card {
   display: block; position: relative;
   padding: 1.15rem 1.3rem 1.15rem 1.55rem;
-  background: linear-gradient(160deg, var(--bg-2), var(--bg-1));
-  border: 1px solid var(--line);
+  /* per-post colour: a low-opacity wash of the card's own accent over the dark
+     base so the tile grid reads varied yet stays dark-cohesive and legible. Row
+     layouts (index/newspaper/timeline/terminal/headlines) reset background to
+     none, so the tint only shows on the tile layouts (Reader/Cards/Magazine). */
+  background:
+    linear-gradient(155deg, color-mix(in srgb, var(--card-accent, var(--teal)) 20%, transparent), transparent 60%),
+    linear-gradient(160deg, var(--bg-2), var(--bg-1));
+  border: 1px solid color-mix(in srgb, var(--card-accent, var(--teal)) 26%, var(--line));
   border-radius: var(--radius);
   overflow: hidden;
   transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
@@ -386,7 +392,21 @@ main { padding-top: var(--header-h); }
 @keyframes pulse-dot { 50% { opacity: 0.35; } }
 
 /* ---------- topic sidebar ---------- */
-.topic-rail { position: sticky; top: calc(var(--header-h) + 1.5rem); align-self: start; }
+/* Full-height left pane: pinned under the fixed header, scrolls on its own so the
+   content column scrolls with the page independently. Subtle right hairline +
+   thin scrollbar. Mobile (≤880px) resets this to static below. */
+.topic-rail {
+  position: sticky; top: var(--header-h); align-self: start;
+  height: calc(100dvh - var(--header-h));
+  overflow-y: auto; overscroll-behavior: contain;
+  padding-top: 1.2rem; padding-right: 0.9rem;
+  border-right: 1px solid var(--line);
+  scrollbar-width: thin; scrollbar-color: var(--bg-3) transparent;
+}
+.topic-rail::-webkit-scrollbar { width: 6px; }
+.topic-rail::-webkit-scrollbar-track { background: transparent; }
+.topic-rail::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 3px; }
+.topic-rail::-webkit-scrollbar-thumb:hover { background: #1d2840; }
 .topic-rail .rail-title {
   font-family: var(--font-display); font-size: 0.78rem; letter-spacing: 0.2em;
   text-transform: uppercase; color: var(--ink-faint); margin-bottom: 1rem;
@@ -416,6 +436,24 @@ main { padding-top: var(--header-h); }
 .topic-btn.active .count { color: var(--cyan); border-color: rgba(34, 211, 238, 0.45); }
 .topic-sub { list-style: none; margin: 0.1rem 0 0.35rem 1rem; display: grid; gap: 0.1rem; }
 .topic-sub .topic-btn { font-size: 0.86rem; padding: 0.38em 0.8em; }
+
+/* Reading templates restyle ONLY the reading surface. The Topics rail lives
+   inside <article data-template>, so a template's colour-var overrides would
+   otherwise cascade into the rail and make it illegible on its dark backing
+   (e.g. Parchment's warm ink on the dark rail). Re-assert the normal dark
+   palette on the rail under EVERY template so it stays readable. */
+article[data-template] .topic-rail {
+  --ink: #f4f7fd;
+  --ink-dim: #c0c9da;
+  --ink-faint: #9aa7c4;
+  --teal: #2dd4bf;
+  --cyan: #22d3ee;
+  --violet: #818cf8;
+  --line: rgba(140, 160, 200, 0.12);
+  --line-strong: rgba(140, 160, 200, 0.22);
+  --bg-3: #131b2f;
+  color: var(--ink-dim);
+}
 
 /* ---------- chips: shared topic chip (archive filter row + constellation sub-row) ---------- */
 .chip {
@@ -473,7 +511,10 @@ main { padding-top: var(--header-h); }
 .topic-group[open] > summary .grp-caret { transform: rotate(180deg); }
 
 @media (max-width: 880px) {
-  .topic-rail { position: static; margin-bottom: 0.5rem; }
+  .topic-rail {
+    position: static; margin-bottom: 0.5rem; height: auto;
+    overflow: visible; padding: 0; border-right: none;
+  }
   /* flat sub-lists (post-page TopicRail) stay hidden on mobile; grouped ones
      (Writing sidebar) collapse via their own <details>, so don't blanket-hide those. */
   .topic-list > li > .topic-sub { display: none; }
@@ -537,6 +578,9 @@ article[data-post-theme="parchment"] .article-grid {
   justify-items: center;
 }
 article[data-post-theme="parchment"] .topic-rail { display: none; }
+/* content column fills the single grid track; hero centres on the sheet above the body */
+article[data-post-theme="parchment"] .article-col { width: 100%; }
+article[data-post-theme="parchment"] .post-hero-inner { margin-inline: auto; }
 
 article[data-post-theme="parchment"] .article-body {
   --parch-ink: #2f2618;
@@ -1154,4 +1198,359 @@ article[data-post-theme="parchment"] .article-body [data-footnotes] li::marker {
   background: rgba(255, 255, 255, 0.96);
   border-color: var(--line-strong);
   box-shadow: 0 18px 44px rgba(60, 70, 90, 0.22);
+}
+
+/* ============================================================
+   READING TEMPLATES
+   Six reading-surface treatments applied via `data-template` on the
+   post <article> (src/pages/blog/[slug].astro). They restyle ONLY the
+   reading surface — the post hero, article body and rail backdrop — by
+   re-declaring the design tokens (and a few element rules) on the
+   <article>. Because the fixed nav <header> lives OUTSIDE <article>, it
+   keeps the site `:root` / site-theme tokens and STAYS DARK regardless.
+   These overrides also win over any site theme inside the surface
+   (article-scoped tokens are nearer ancestors of the body than :root).
+
+   • observatory — default dark house style (no overrides needed).
+   • parchment   — warm off-white, dark ink, serif, book-like measure.
+   • manuscript  — dark, narrow measure, large serif, literary essay.
+   • newsprint   — light grey, dark text, tight serif, editorial density.
+   • slate       — cooler/cleaner dark, minimal ornament, sans.
+   • focus       — stripped chrome (no rail), centred column, large type.
+   ============================================================ */
+
+/* ---- observatory (default) ---- */
+/* Intentionally no rules: this IS the base dark house style. Listed here so
+   the switcher's six keys are all represented in the stylesheet. */
+
+/* =================== shared light-surface scaffolding ===================
+   parchment + newsprint are light. Give the post a light panel behind the
+   hero (which otherwise floats over the dark page bg), soften the decorative
+   orbs/grid-lines, fix the white hero-title scrim, and lighten the rail rule. */
+article[data-template="parchment"],
+article[data-template="newsprint"] {
+  color-scheme: light;
+}
+article[data-template="parchment"] .article-col,
+article[data-template="newsprint"] .article-col {
+  background: var(--bg-1);
+  border-radius: 14px;
+  padding-inline: clamp(0.6rem, 2.2vw, 1.6rem);
+  box-shadow: 0 24px 70px -36px rgba(0, 0, 0, 0.5);
+}
+article[data-template="parchment"] .post-hero .orb,
+article[data-template="newsprint"] .post-hero .orb { opacity: 0.12 !important; }
+article[data-template="parchment"] .post-hero .grid-lines,
+article[data-template="newsprint"] .post-hero .grid-lines { opacity: 0.25; }
+/* white headline glow → light-surface scrim so the title stays crisp */
+article[data-template="parchment"] .post-hero .scrim-text,
+article[data-template="newsprint"] .post-hero .scrim-text {
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+article[data-template="parchment"] .topic-rail,
+article[data-template="newsprint"] .topic-rail { border-right-color: var(--line); }
+
+/* =========================== PARCHMENT ===========================
+   Warm off-white sheet, dark ink, serif body, generous measure + leading. */
+article[data-template="parchment"] {
+  --bg-0: #f3ead6;
+  --bg-1: #f7efdc;
+  --bg-2: #efe3c8;
+  --bg-3: #e7d9b8;
+  --ink: #2c2415;
+  --ink-dim: #5a4d36;
+  --ink-faint: #837154;
+  --teal: #8a5a2c;
+  --cyan: #9a531f;
+  --violet: #6f5a2c;
+  --accent: #9a531f;
+  --line: rgba(120, 95, 50, 0.20);
+  --line-strong: rgba(120, 95, 50, 0.34);
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+}
+article[data-template="parchment"] .article-body {
+  max-width: 72ch;
+  color: var(--ink);
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+  font-size: 1.22rem;
+  line-height: 1.85;
+  font-weight: 400;
+}
+article[data-template="parchment"] .article-body h2,
+article[data-template="parchment"] .article-body h3 { color: var(--ink); }
+article[data-template="parchment"] .article-body h2 { border-top-color: var(--line-strong); }
+article[data-template="parchment"] .article-body strong { color: #1c150a; }
+article[data-template="parchment"] .article-body em { color: var(--ink-dim); }
+article[data-template="parchment"] .article-body a { color: var(--cyan); border-bottom-color: rgba(154, 83, 31, 0.4); }
+article[data-template="parchment"] .article-body a:hover { border-bottom-color: var(--cyan); text-shadow: none; }
+article[data-template="parchment"] .article-body blockquote {
+  border-left-color: var(--cyan); color: var(--ink-dim); box-shadow: none; font-style: italic;
+}
+article[data-template="parchment"] .article-body code {
+  background: #e8dabb; border-color: #d6c498; color: #463821;
+}
+article[data-template="parchment"] .article-body pre {
+  background: #2a2418; border-color: #1d1810;
+}
+article[data-template="parchment"] .article-body pre code { color: #f0e6d2; }
+article[data-template="parchment"] .article-body figcaption { color: var(--ink-faint); }
+article[data-template="parchment"] .article-body img { border-color: var(--line-strong); box-shadow: 0 12px 36px rgba(80, 60, 30, 0.22); }
+article[data-template="parchment"] .post-hero-meta,
+article[data-template="parchment"] .back-link { color: var(--ink-dim); }
+
+/* =========================== MANUSCRIPT ===========================
+   DARK WARM sepia/ink surface, gold/amber accent, LARGE serif headings +
+   body, NARROW measure, drop-cap + a subtle rule on the opening paragraph.
+   A bound book by candlelight — must NOT read like observatory. */
+article[data-template="manuscript"] {
+  --bg-0: #130d07;
+  --bg-1: #1a120a;
+  --bg-2: #211710;
+  --bg-3: #2c2014;
+  --ink: #f0e4cf;
+  --ink-dim: #cdbb98;
+  --ink-faint: #9c8763;
+  --teal: #d8b46a;
+  --cyan: #e6c97e;
+  --violet: #c9a25a;
+  --accent: #d8b46a;
+  --line: rgba(216, 180, 106, 0.18);
+  --line-strong: rgba(216, 180, 106, 0.32);
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+}
+/* paint the whole reading column the warm ink, framed in faint gold */
+article[data-template="manuscript"] .article-col {
+  background: radial-gradient(120% 80% at 50% -10%, #1d140b, transparent 60%), var(--bg-0);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding-inline: clamp(0.8rem, 2.6vw, 2rem);
+}
+article[data-template="manuscript"] .article-body {
+  max-width: 58ch;
+  margin-inline: auto;
+  color: var(--ink);
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+  font-size: 1.34rem;
+  line-height: 1.92;
+  font-weight: 400;
+}
+/* gilt drop-cap + hairline rule under the opening paragraph */
+article[data-template="manuscript"] .article-body > p:first-of-type::first-letter {
+  float: left; font-size: 3.6em; line-height: 0.62;
+  padding: 0.04em 0.12em 0 0; color: var(--teal); font-weight: 700;
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+}
+article[data-template="manuscript"] .article-body > p:first-of-type {
+  padding-bottom: 1.1em; border-bottom: 1px solid var(--line); margin-bottom: 0.2em;
+}
+article[data-template="manuscript"] .post-title-row h1 { font-size: clamp(2.1rem, 5vw, 3.3rem); letter-spacing: -0.01em; }
+article[data-template="manuscript"] .article-body h2,
+article[data-template="manuscript"] .article-body h3 { color: var(--ink); }
+article[data-template="manuscript"] .article-body h2 { font-size: 1.95rem; border-top-color: var(--line-strong); }
+article[data-template="manuscript"] .article-body h3 { font-size: 1.45rem; }
+article[data-template="manuscript"] .article-body strong { color: #fbeecd; }
+article[data-template="manuscript"] .article-body em { color: var(--ink-dim); }
+article[data-template="manuscript"] .article-body a { color: var(--cyan); border-bottom-color: rgba(216, 180, 106, 0.45); }
+article[data-template="manuscript"] .article-body a:hover { border-bottom-color: var(--cyan); text-shadow: 0 0 10px rgba(216, 180, 106, 0.4); }
+article[data-template="manuscript"] .article-body li::marker { color: var(--teal); }
+article[data-template="manuscript"] .article-body blockquote {
+  border-left-color: var(--teal); color: var(--ink-dim); font-style: italic; font-size: 1.2rem;
+  box-shadow: inset 8px 0 24px -16px rgba(216, 180, 106, 0.45);
+}
+article[data-template="manuscript"] .article-body code {
+  font-size: 0.8em; background: #2a1f12; border-color: #3a2c19; color: #ecd9ad;
+}
+article[data-template="manuscript"] .article-body pre { background: #1c1409; border-color: #2c2014; font-size: 0.82em; }
+article[data-template="manuscript"] .article-body pre code { color: #ecd9ad; }
+/* warm down the decorative hero orbs so they read amber, not teal */
+article[data-template="manuscript"] .post-hero .orb-b { background: radial-gradient(circle, rgba(216, 180, 106, 0.18), transparent 70%) !important; }
+
+/* =========================== NEWSPRINT ===========================
+   Light grey, dark text, tight serif, editorial density. */
+article[data-template="newsprint"] {
+  --bg-0: #e8e7e3;
+  --bg-1: #ecebe7;
+  --bg-2: #e0dfda;
+  --bg-3: #d7d6d0;
+  --ink: #1b1b1a;
+  --ink-dim: #46453f;
+  --ink-faint: #6d6c64;
+  --teal: #7a2c1f;
+  --cyan: #9a2f1a;
+  --violet: #5a3a6a;
+  --accent: #9a2f1a;
+  --line: rgba(40, 40, 36, 0.18);
+  --line-strong: rgba(40, 40, 36, 0.32);
+  --font-display: Georgia, 'Times New Roman', 'Iowan Old Style', serif;
+}
+article[data-template="newsprint"] .article-body {
+  max-width: 64ch;
+  color: var(--ink);
+  font-family: Georgia, 'Times New Roman', 'Iowan Old Style', serif;
+  font-size: 1.03rem;
+  line-height: 1.52;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+}
+article[data-template="newsprint"] .article-body > * + * { margin-top: 0.9em; }
+/* tight, dense paragraphs — no extra leading between like a column of newsprint */
+article[data-template="newsprint"] .article-body p { text-align: justify; hyphens: auto; }
+article[data-template="newsprint"] .article-body h2,
+article[data-template="newsprint"] .article-body h3 { color: var(--ink); font-weight: 700; }
+/* thick rule above h2 — section break in a paper */
+article[data-template="newsprint"] .article-body h2 {
+  font-size: 1.5rem; margin-top: 1.6em; padding-top: 0.8em;
+  border-top: 3px double var(--line-strong); letter-spacing: -0.01em;
+}
+article[data-template="newsprint"] .article-body h3 { font-size: 1.16rem; margin-top: 1.3em; }
+article[data-template="newsprint"] .article-body strong { color: #000; }
+article[data-template="newsprint"] .article-body em { color: var(--ink-dim); }
+article[data-template="newsprint"] .article-body a { color: var(--cyan); border-bottom-color: rgba(154, 47, 26, 0.4); }
+article[data-template="newsprint"] .article-body a:hover { border-bottom-color: var(--cyan); text-shadow: none; }
+article[data-template="newsprint"] .article-body blockquote {
+  border-left-color: var(--cyan); color: var(--ink-dim); box-shadow: none;
+}
+article[data-template="newsprint"] .article-body code {
+  background: #dcdbd5; border-color: #c8c7c0; color: #2a2a26;
+}
+article[data-template="newsprint"] .article-body pre { background: #26261f; border-color: #1a1a14; }
+article[data-template="newsprint"] .article-body pre code { color: #eceadf; }
+article[data-template="newsprint"] .article-body figcaption { color: var(--ink-faint); }
+article[data-template="newsprint"] .article-body img { border-color: var(--line-strong); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18); }
+article[data-template="newsprint"] .post-hero-meta,
+article[data-template="newsprint"] .back-link { color: var(--ink-dim); }
+
+/* =========================== SLATE ===========================
+   MEDIUM blue-grey surface (distinctly LIGHTER/greyer than near-black),
+   clean sans, cool slate-blue accent, minimal ornament. */
+article[data-template="slate"] {
+  --bg-0: #1b2430;
+  --bg-1: #1f2937;
+  --bg-2: #27323f;
+  --bg-3: #313d4c;
+  --ink: #eef2f7;
+  --ink-dim: #c2ccd9;
+  --ink-faint: #8b97a8;
+  --teal: #7fa6c9;
+  --cyan: #93b7d6;
+  --violet: #9fb2cc;
+  --accent: #7fa6c9;
+  --line: rgba(160, 180, 205, 0.16);
+  --line-strong: rgba(160, 180, 205, 0.26);
+  --font-display: 'Space Grotesk Variable', 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Inter Variable', 'Inter', system-ui, sans-serif;
+}
+/* paint the reading column the medium slate so it lifts clearly off the dark page */
+article[data-template="slate"] .article-col {
+  background: var(--bg-0);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding-inline: clamp(0.8rem, 2.6vw, 2rem);
+  box-shadow: 0 24px 70px -40px rgba(0, 0, 0, 0.7);
+}
+article[data-template="slate"] .article-body {
+  max-width: 70ch;
+  font-family: var(--font-body);
+  font-size: 1.1rem;
+  line-height: 1.75;
+  color: var(--ink-dim);
+}
+article[data-template="slate"] .article-body h2,
+article[data-template="slate"] .article-body h3 { color: var(--ink); font-weight: 600; }
+article[data-template="slate"] .article-body strong { color: #ffffff; }
+article[data-template="slate"] .article-body em { color: var(--ink); }
+article[data-template="slate"] .article-body li::marker { color: var(--teal); }
+/* minimal ornament: drop the decorative hero orbs + grid, lighten link glow */
+article[data-template="slate"] .post-hero .orbs,
+article[data-template="slate"] .post-hero .grid-lines { display: none; }
+article[data-template="slate"] .article-body a { color: var(--cyan); border-bottom-color: rgba(127, 166, 201, 0.4); }
+article[data-template="slate"] .article-body a:hover { text-shadow: none; border-bottom-color: var(--cyan); }
+article[data-template="slate"] .article-body blockquote {
+  border-left-color: var(--teal); color: var(--ink-dim); box-shadow: none; font-style: normal;
+}
+article[data-template="slate"] .article-body code {
+  background: #2b3744; border-color: #3a4756; color: #d6e0ec;
+}
+article[data-template="slate"] .article-body pre { background: #161e28; border-color: #2b3744; }
+article[data-template="slate"] .article-body h2 { border-top-color: var(--line); }
+
+/* =========================== FOCUS ===========================
+   Stripped chrome — hide the Topics rail + extras, centred single column,
+   LARGE type, generous leading. Dark. */
+article[data-template="focus"] .article-grid {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+}
+article[data-template="focus"] .topic-rail { display: none; }
+article[data-template="focus"] .article-col { width: 100%; max-width: 760px; }
+article[data-template="focus"] .post-hero-inner { margin-inline: auto; }
+/* strip hero ornament for a calm, distraction-free read */
+article[data-template="focus"] .post-hero .orbs,
+article[data-template="focus"] .post-hero .grid-lines { display: none; }
+article[data-template="focus"] .article-body {
+  max-width: 38rem;
+  margin-inline: auto;
+  font-size: 1.42rem;
+  line-height: 2.0;
+}
+article[data-template="focus"] .article-col { max-width: 760px; }
+article[data-template="focus"] .post-title-row h1 { font-size: clamp(2.4rem, 6vw, 3.6rem); line-height: 1.08; }
+article[data-template="focus"] .article-body h2 { font-size: 1.85rem; }
+article[data-template="focus"] .article-body h3 { font-size: 1.4rem; }
+/* stripped chrome: hide tags, read-time, series flag + glyph for a pure read */
+article[data-template="focus"] .post-hero-meta .tag-chip,
+article[data-template="focus"] .post-hero-meta .badge-interactive,
+article[data-template="focus"] .post-title-row .glyph-badge,
+article[data-template="focus"] .series-flag { display: none; }
+article[data-template="focus"] .article-body a:hover { text-shadow: none; }
+
+/* ---- legacy interaction guard ----
+   A handful of posts use the older per-post `theme: parchment` (data-post-theme)
+   which renders a centred warm "sheet". That still works under the DEFAULT
+   `observatory` template. But if a reader picks a different template on such a
+   post, the new template must own the surface — so neutralise the legacy sheet's
+   layout + body skin whenever an explicit non-observatory template is active.
+   (Higher specificity than the legacy `article[data-post-theme] .article-body`
+   rules; resets to inherit so the chosen template's tokens take over.) */
+article[data-post-theme="parchment"]:not([data-template="observatory"]) .article-grid {
+  grid-template-columns: 230px minmax(0, 1fr);
+  justify-items: stretch;
+}
+article[data-post-theme="parchment"][data-template="focus"] .article-grid {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+}
+article[data-post-theme="parchment"]:not([data-template="observatory"]) .topic-rail { display: block; }
+article[data-post-theme="parchment"][data-template="focus"] .topic-rail { display: none; }
+article[data-post-theme="parchment"]:not([data-template="observatory"]) .article-body {
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  max-width: 68ch;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 1.14rem;
+  line-height: 1.78;
+}
+/* the chosen template re-skins the body itself; re-assert each one's essentials
+   over the broad reset above (serif templates need their family + measure back). */
+article[data-post-theme="parchment"][data-template="parchment"] .article-body,
+article[data-post-theme="parchment"][data-template="newsprint"] .article-body,
+article[data-post-theme="parchment"][data-template="manuscript"] .article-body {
+  color: var(--ink);
+  font-family: var(--font-display);
+}
+article[data-post-theme="parchment"][data-template="manuscript"] .article-body {
+  max-width: 58ch; margin-inline: auto; font-size: 1.34rem; line-height: 1.92;
+}
+article[data-post-theme="parchment"][data-template="slate"] .article-body { color: var(--ink-dim); }
+/* drop-cap reset applies to every non-observatory template EXCEPT manuscript,
+   which keeps its gilt drop-cap. */
+article[data-post-theme="parchment"]:not([data-template="observatory"]):not([data-template="manuscript"]) .article-body > p:first-of-type::first-letter {
+  float: none; font-size: inherit; line-height: inherit; padding: 0; color: inherit; font-weight: inherit;
+}
+article[data-post-theme="parchment"][data-template="manuscript"] .article-body > p:first-of-type {
+  padding-bottom: 1.1em; border-bottom: 1px solid var(--line); margin-bottom: 0.2em;
 }

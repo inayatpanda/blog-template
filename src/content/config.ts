@@ -22,6 +22,15 @@ const blog = defineCollection({
     // Reading theme — the post opens as its own themed "sheet" on the dark site frame.
     // 'dark' (default) keeps the site look; others render a light/styled sheet.
     theme: z.enum(['dark', 'parchment']).default('dark'),
+    // Reading TEMPLATE — restyles the reading surface (post hero + article body +
+    // rail backdrop) below the fixed nav. Optional per-post LOCK: when set, this
+    // template is forced for this post and the on-page switcher reflects + locks it.
+    // Absent → reader's global `localStorage 'post-template'` pref applies (default
+    // 'observatory', the dark house style). Keys: observatory | parchment |
+    // manuscript | newsprint | slate | focus.
+    template: z
+      .enum(['observatory', 'parchment', 'manuscript', 'newsprint', 'slate', 'focus'])
+      .optional(),
     // Manual citations (The Helm references manager). The {id,text} list is the
     // source of truth for the editor; the markdown body carries the GFM footnote
     // markers ([^id]) and definitions that actually render. Optional.
