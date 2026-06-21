@@ -16,9 +16,18 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm }
       - run: npm ci
+      # Decide the base path: a custom domain (CNAME present at the repo root or in
+      # public/) serves the site at "/"; otherwise it's a GitHub Pages project site
+      # under "/<repo>/". $GITHUB_REPOSITORY is "owner/repo" on every trigger.
+      - name: Resolve BASE_PATH
+        run: |
+          if [ -f CNAME ] || [ -f public/CNAME ]; then
+            echo "Custom domain detected (CNAME) — serving at /"
+            echo "BASE_PATH=/" >> "$GITHUB_ENV"
+          else
+            echo "BASE_PATH=/${GITHUB_REPOSITORY##*/}/" >> "$GITHUB_ENV"
+          fi
       - run: npm run build
-        env:
-          BASE_PATH: "/${{ github.event.repository.name }}/"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: { path: ./dist }
