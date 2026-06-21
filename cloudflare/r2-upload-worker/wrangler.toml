@@ -1,0 +1,23 @@
+# Cloudflare Worker config for the R2 upload route.
+#
+# Deploy:  npx wrangler deploy
+# Secret:  npx wrangler secret put UPLOAD_SECRET   (paste a long random string)
+#
+# After `deploy`, wrangler prints the live URL, e.g.
+#   https://r2-upload-worker.<your-subdomain>.workers.dev
+# Copy that URL — it goes into Helm config (media.worker.url) and the Studio R2 Settings.
+
+name = "r2-upload-worker"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# R2 binding: env.BUCKET inside the Worker maps to your real bucket. This is the whole
+# point — uploads go through the binding, NOT the broken <acct>.r2.cloudflarestorage.com
+# S3 endpoint. bucket_name must match your existing bucket exactly.
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "YOUR-BUCKET-NAME"
+
+# UPLOAD_SECRET is NOT set here — it's a secret, set out-of-band with:
+#   npx wrangler secret put UPLOAD_SECRET
+# (Defining it in [vars] would store it in plaintext in this file — don't.)
