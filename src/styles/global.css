@@ -657,6 +657,10 @@ article[data-post-theme="parchment"] .article-body figcaption { color: var(--par
   background: var(--bg-1);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 }
+/* A self-hosted video with a poster (still backdrop) holds a 16:9 box before play so
+   the page doesn't jump while the poster loads; the figure spaces like other media. */
+.article-body video[poster] { aspect-ratio: 16 / 9; object-fit: cover; background: var(--bg-1); }
+.article-body figure.blk-video { margin-block: 2rem; }
 .article-body iframe {
   width: 100%;
   border: 1px solid rgba(34, 211, 238, 0.25);

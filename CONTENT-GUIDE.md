@@ -37,6 +37,17 @@ Plain markdown `![alt](/images/x.jpg)` also works. Add `class="breakout"` for a 
 <video src="/videos/reduction.mp4" controls preload="metadata" playsinline></video>
 ```
 
+Self-hosted video published via Helm carries a `poster` still and an absolute CDN
+URL (so it is base-path-immune — `withBase` leaves `http(s)://` URLs untouched).
+A caption wraps it in a `figure.blk-video`:
+
+```html
+<!-- Self-hosted video published via Helm (absolute CDN URL → base-path-immune) -->
+<video src="https://inayatpanda.com/media/med-abc-web.mp4"
+       poster="https://inayatpanda.com/media/med-abc-poster.jpg"
+       controls preload="metadata" playsinline></video>
+```
+
 YouTube / Vimeo:
 
 ```html
