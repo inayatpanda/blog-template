@@ -109,4 +109,19 @@ In that PowerShell/Terminal window:
 
 ---
 
-That's everything. Videos live in your own Cloudflare storage and play in your posts. Stuck on a step? Send a screenshot.
+## Bonus — free AI image generation (FLUX) 🎨
+
+Your Worker can **also generate images for free** via Cloudflare Workers AI (FLUX) — the image route is already in the Worker code.
+
+To switch it on, just **redeploy the Worker** (the AI binding is already in `wrangler.toml`, nothing to edit):
+```
+cd cloudflare/r2-upload-worker
+npx wrangler deploy
+```
+*(If you already set up the Worker for video, it's the exact same one-line redeploy.)*
+
+Then in the Studio, the **✦ Generate** action on an image block turns a text prompt into a picture. It's **free** on Cloudflare's tier (~10,000 "Neurons"/day ≈ hundreds of images a day), and the free plan can't run up a bill — it just pauses if you ever hit the daily cap.
+
+---
+
+That's everything. Videos live in your own Cloudflare storage, image-gen runs on your Worker, and it all plays in your posts. Stuck on a step? Send a screenshot.

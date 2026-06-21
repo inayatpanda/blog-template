@@ -18,6 +18,13 @@ compatibility_date = "2024-11-01"
 binding = "BUCKET"
 bucket_name = "YOUR-BUCKET-NAME"
 
+# Workers AI binding: env.AI inside the Worker. Powers the POST /image route (free
+# text-to-image via FLUX.1-schnell). No account id or key needed here — the binding wires
+# Workers AI to this Worker. Adding it is the one-time step to enable image generation;
+# then `npx wrangler deploy`.
+[ai]
+binding = "AI"
+
 # UPLOAD_SECRET is NOT set here — it's a secret, set out-of-band with:
 #   npx wrangler secret put UPLOAD_SECRET
 # (Defining it in [vars] would store it in plaintext in this file — don't.)
